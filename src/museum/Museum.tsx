@@ -1,11 +1,40 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { PointerLockControls, Html, Environment, Stars } from "@react-three/drei";
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { PointerLockControls, Html, Sky } from "@react-three/drei";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import { DEFAULT_ROOMS, type Exhibit, type Room } from "./types";
+import { ROOMS, type Exhibit, type Room } from "./types";
 
-// ---------- Movement (WASD + pointer lock) ----------
-function Player({ teleportTo }: { teleportTo: [number, number, number] | null }) {
+// ---------- Layout constants ----------
+const LOBBY_SIZE = 26;
+const WALL_H = 7;
+const WALL_T = 0.4;
+const ROOM_DIST = 34; // center distance from lobby center to room center
+const ROOM_W = 18;
+const ROOM_D = 26;
+const DOOR_W = 5;
+
+// Materials reused across the museum
+const FLOOR_COLOR = "#e7dcc6"; // travertine / sandstone
+const WALL_COLOR = "#f4ecdc"; // ivory
+const TRIM_COLOR = "#c9b58a"; // light wood
+const PEDESTAL_COLOR = "#ece3cf";
+
+// ---------- Proximity / interaction ----------
+type NearTarget = { exhibitId: string; roomId: string };
+
+function useNearTarget() {
+  const [near, setNear] = useState<NearTarget | null>(null);
+  return { near, setNear };
+}
+
+// ---------- Player (first person) ----------
+function Player({
+  teleportTo,
+  onMove,
+}: {
+  teleportTo: [number, number, number] | null;
+  onMove: (pos: THREE.Vector3) => void;
+}) {
   const { camera } = useThree();
   const keys = useRef<Record<string, boolean>>({});
   const velocity = useRef(new THREE.Vector3());
@@ -23,19 +52,18 @@ function Player({ teleportTo }: { teleportTo: [number, number, number] | null })
 
   useEffect(() => {
     if (teleportTo) {
-      camera.position.set(teleportTo[0], 1.7, teleportTo[2] + 6);
-      camera.lookAt(teleportTo[0], 1.7, teleportTo[2]);
+      camera.position.set(teleportTo[0], 1.7, teleportTo[2]);
+      camera.lookAt(0, 1.7, 0);
     }
   }, [teleportTo, camera]);
 
   useFrame((_, dt) => {
-    const speed = (keys.current["ShiftLeft"] ? 12 : 6) * dt;
+    const speed = (keys.current["ShiftLeft"] ? 9 : 4.5) * dt;
     const forward = new THREE.Vector3();
     camera.getWorldDirection(forward);
     forward.y = 0;
     forward.normalize();
     const right = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
-
     const dir = new THREE.Vector3();
     if (keys.current["KeyW"] || keys.current["ArrowUp"]) dir.add(forward);
     if (keys.current["KeyS"] || keys.current["ArrowDown"]) dir.sub(forward);
@@ -43,487 +71,758 @@ function Player({ teleportTo }: { teleportTo: [number, number, number] | null })
     if (keys.current["KeyA"] || keys.current["ArrowLeft"]) dir.sub(right);
     if (dir.lengthSq() > 0) {
       dir.normalize().multiplyScalar(speed);
-      velocity.current.lerp(dir, 0.4);
+      velocity.current.lerp(dir, 0.5);
     } else {
-      velocity.current.lerp(new THREE.Vector3(), 0.2);
+      velocity.current.lerp(new THREE.Vector3(), 0.3);
     }
     camera.position.add(velocity.current);
-    // soft bounds
-    camera.position.x = THREE.MathUtils.clamp(camera.position.x, -60, 60);
-    camera.position.z = THREE.MathUtils.clamp(camera.position.z, -70, 50);
+    // bounds: keep within outer museum footprint
+    const R = ROOM_DIST + ROOM_D / 2 + 2;
+    camera.position.x = THREE.MathUtils.clamp(camera.position.x, -R, R);
+    camera.position.z = THREE.MathUtils.clamp(camera.position.z, -R, R);
     camera.position.y = 1.7;
+    onMove(camera.position);
   });
 
   return null;
 }
 
-// ---------- Architecture pieces ----------
-function Floor() {
+// ---------- Building blocks ----------
+function Wall({
+  position,
+  size,
+  rotationY = 0,
+  color = WALL_COLOR,
+}: {
+  position: [number, number, number];
+  size: [number, number, number];
+  rotationY?: number;
+  color?: string;
+}) {
   return (
-    <mesh rotation-x={-Math.PI / 2} receiveShadow position={[0, 0, 0]}>
-      <planeGeometry args={[200, 200]} />
-      <meshStandardMaterial color="#0c0d12" roughness={0.4} metalness={0.6} />
+    <mesh position={position} rotation={[0, rotationY, 0]} castShadow receiveShadow>
+      <boxGeometry args={size} />
+      <meshStandardMaterial color={color} roughness={0.95} metalness={0} />
     </mesh>
   );
 }
 
-function LightStrip({ position, length = 20, color = "#5fb8ff" }: { position: [number, number, number]; length?: number; color?: string }) {
+/** A wall with a doorway opening centered along its length axis. */
+function WallWithDoor({
+  center,
+  length,
+  rotationY,
+  doorWidth = DOOR_W,
+  height = WALL_H,
+}: {
+  center: [number, number, number];
+  length: number;
+  rotationY: number;
+  doorWidth?: number;
+  height?: number;
+}) {
+  const seg = (length - doorWidth) / 2;
+  const offset = doorWidth / 2 + seg / 2;
   return (
-    <mesh position={position}>
-      <boxGeometry args={[length, 0.05, 0.15]} />
-      <meshStandardMaterial color={color} emissive={color} emissiveIntensity={2.4} toneMapped={false} />
-    </mesh>
-  );
-}
-
-function Lobby() {
-  const ringRef = useRef<THREE.Mesh>(null);
-  useFrame((s) => {
-    if (ringRef.current) ringRef.current.rotation.y = s.clock.elapsedTime * 0.1;
-  });
-  return (
-    <group>
-      {/* circular lobby disc */}
-      <mesh position={[0, 0.02, 0]} rotation-x={-Math.PI / 2}>
-        <ringGeometry args={[8, 12, 64]} />
-        <meshStandardMaterial color="#13151c" emissive="#1a2a44" emissiveIntensity={0.6} />
+    <group position={center} rotation={[0, rotationY, 0]}>
+      <mesh position={[-offset, height / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[seg, height, WALL_T]} />
+        <meshStandardMaterial color={WALL_COLOR} roughness={0.95} />
       </mesh>
-      <mesh ref={ringRef} position={[0, 0.03, 0]} rotation-x={-Math.PI / 2}>
-        <ringGeometry args={[10.4, 10.7, 128]} />
-        <meshStandardMaterial color="#5fb8ff" emissive="#5fb8ff" emissiveIntensity={3} toneMapped={false} />
+      <mesh position={[offset, height / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[seg, height, WALL_T]} />
+        <meshStandardMaterial color={WALL_COLOR} roughness={0.95} />
       </mesh>
-      {/* atrium columns */}
-      {Array.from({ length: 8 }).map((_, i) => {
-        const a = (i / 8) * Math.PI * 2;
-        const r = 9.5;
-        return (
-          <mesh key={i} position={[Math.cos(a) * r, 4, Math.sin(a) * r]} castShadow>
-            <cylinderGeometry args={[0.25, 0.25, 8, 16]} />
-            <meshStandardMaterial color="#1a1c24" metalness={0.8} roughness={0.3} />
-          </mesh>
-        );
-      })}
-      {/* atrium light ring above */}
-      <mesh position={[0, 8.1, 0]} rotation-x={-Math.PI / 2}>
-        <ringGeometry args={[6, 6.3, 64]} />
-        <meshStandardMaterial color="#a78bfa" emissive="#a78bfa" emissiveIntensity={2.5} toneMapped={false} />
+      {/* lintel above door */}
+      <mesh position={[0, height - 0.6, 0]} castShadow>
+        <boxGeometry args={[doorWidth, 1.2, WALL_T]} />
+        <meshStandardMaterial color={WALL_COLOR} roughness={0.95} />
       </mesh>
-      <pointLight position={[0, 7, 0]} intensity={40} distance={30} color="#7dd3fc" />
+      {/* door trim (wood) */}
+      <mesh position={[0, height - 1.25, 0.01]}>
+        <boxGeometry args={[doorWidth + 0.2, 0.08, WALL_T + 0.05]} />
+        <meshStandardMaterial color={TRIM_COLOR} roughness={0.7} />
+      </mesh>
     </group>
   );
 }
 
-function Corridor({ from, to }: { from: [number, number, number]; to: [number, number, number] }) {
-  const mid: [number, number, number] = [(from[0] + to[0]) / 2, 0, (from[2] + to[2]) / 2];
-  const dx = to[0] - from[0];
-  const dz = to[2] - from[2];
-  const len = Math.sqrt(dx * dx + dz * dz);
-  const angle = Math.atan2(dz, dx);
-  return (
-    <group position={mid} rotation={[0, -angle, 0]}>
-      <mesh position={[0, 0.01, 0]} rotation-x={-Math.PI / 2}>
-        <planeGeometry args={[len, 3]} />
-        <meshStandardMaterial color="#15171f" emissive="#0a1525" emissiveIntensity={0.6} />
-      </mesh>
-      <LightStrip position={[0, 0.03, 1.4]} length={len} />
-      <LightStrip position={[0, 0.03, -1.4]} length={len} />
-    </group>
-  );
-}
-
-// ---------- Room shells ----------
-function RoomShell({ position, hue, children }: { position: [number, number, number]; hue: number; children?: React.ReactNode }) {
-  const accent = `hsl(${hue} 90% 65%)`;
+function Skylight({ position, size }: { position: [number, number, number]; size: [number, number] }) {
+  // Glass roof patch + a bright directional fill below
   return (
     <group position={position}>
-      {/* floor */}
-      <mesh rotation-x={-Math.PI / 2} position={[0, 0.01, 0]}>
-        <circleGeometry args={[10, 64]} />
-        <meshStandardMaterial color="#11131a" metalness={0.5} roughness={0.4} />
+      <mesh rotation-x={Math.PI / 2}>
+        <planeGeometry args={size} />
+        <meshStandardMaterial
+          color="#f8f1e1"
+          emissive="#fff6e3"
+          emissiveIntensity={0.6}
+          transparent
+          opacity={0.9}
+          roughness={0.2}
+        />
       </mesh>
-      {/* curved back wall (half cylinder) */}
-      <mesh position={[0, 3, -6]} castShadow>
-        <cylinderGeometry args={[9, 9, 6, 48, 1, true, -Math.PI / 2, Math.PI]} />
-        <meshStandardMaterial color="#0f1117" side={THREE.DoubleSide} metalness={0.3} roughness={0.6} />
-      </mesh>
-      {/* floor accent ring */}
-      <mesh rotation-x={-Math.PI / 2} position={[0, 0.02, 0]}>
-        <ringGeometry args={[9.4, 9.6, 64]} />
-        <meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={2.5} toneMapped={false} />
-      </mesh>
-      <pointLight position={[0, 5, 0]} intensity={25} distance={20} color={accent} />
-      <spotLight position={[0, 6, 4]} angle={0.5} intensity={30} penumbra={0.5} target-position={[0, 1, 0]} color="#ffffff" />
-      {children}
+      {/* grid mullions */}
+      {[-1, 0, 1].map((i) => (
+        <mesh key={"a" + i} position={[(size[0] / 4) * i, -0.05, 0]}>
+          <boxGeometry args={[0.08, 0.1, size[1]]} />
+          <meshStandardMaterial color={TRIM_COLOR} />
+        </mesh>
+      ))}
+      {[-1, 0, 1].map((i) => (
+        <mesh key={"b" + i} position={[0, -0.05, (size[1] / 4) * i]}>
+          <boxGeometry args={[size[0], 0.1, 0.08]} />
+          <meshStandardMaterial color={TRIM_COLOR} />
+        </mesh>
+      ))}
+      <pointLight position={[0, -2, 0]} intensity={45} distance={28} color="#fff4d8" decay={1.6} />
     </group>
   );
 }
 
-function ExhibitPlatform({ exhibit, hue, onOpen }: { exhibit: Exhibit; hue: number; onOpen: () => void }) {
-  const bookRef = useRef<THREE.Group>(null);
+function FloatingBooksSculpture() {
+  const group = useRef<THREE.Group>(null);
   useFrame((s) => {
-    if (bookRef.current) {
-      bookRef.current.rotation.y = s.clock.elapsedTime * 0.4;
-      bookRef.current.position.y = 1.6 + Math.sin(s.clock.elapsedTime * 1.2) * 0.08;
+    if (group.current) group.current.rotation.y = s.clock.elapsedTime * 0.08;
+  });
+  const books = useMemo(() => {
+    const arr: { p: [number, number, number]; r: [number, number, number]; c: string }[] = [];
+    const palette = ["#a86b3c", "#7b5b3a", "#c79a5b", "#e2c89a", "#5d6b4a", "#8b3e2f"];
+    for (let i = 0; i < 18; i++) {
+      const t = i / 18;
+      const y = 2 + t * 4;
+      const a = i * 1.7;
+      const r = 1.6 + Math.sin(i * 0.7) * 0.5;
+      arr.push({
+        p: [Math.cos(a) * r, y, Math.sin(a) * r],
+        r: [Math.random() * 0.6, a, Math.random() * 0.4],
+        c: palette[i % palette.length],
+      });
+    }
+    return arr;
+  }, []);
+  return (
+    <group ref={group} position={[0, 0, 0]}>
+      {books.map((b, i) => (
+        <mesh key={i} position={b.p} rotation={b.r} castShadow>
+          <boxGeometry args={[0.9, 1.2, 0.18]} />
+          <meshStandardMaterial color={b.c} roughness={0.6} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+// ---------- Exhibit ----------
+function ExhibitNode({
+  exhibit,
+  roomId,
+  worldPosition,
+  facingY,
+  accent,
+  near,
+  onNear,
+  onOpen,
+}: {
+  exhibit: Exhibit;
+  roomId: string;
+  worldPosition: [number, number, number];
+  facingY: number;
+  accent: string;
+  near: NearTarget | null;
+  onNear: (n: NearTarget | null) => void;
+  onOpen: () => void;
+}) {
+  const myPos = useMemo(() => new THREE.Vector3(...worldPosition), [worldPosition]);
+  const isNear = near?.exhibitId === exhibit.id;
+
+  useFrame(({ camera }) => {
+    const d = camera.position.distanceTo(myPos);
+    if (d < 4.2) {
+      if (!isNear) onNear({ exhibitId: exhibit.id, roomId });
+    } else if (isNear) {
+      onNear(null);
     }
   });
-  const accent = `hsl(${hue} 90% 65%)`;
+
+  return (
+    <group position={worldPosition} rotation={[0, facingY, 0]}>
+      {/* pedestal */}
+      <mesh position={[0, 0.55, 0]} castShadow receiveShadow>
+        <boxGeometry args={[1.6, 1.1, 1.2]} />
+        <meshStandardMaterial color={PEDESTAL_COLOR} roughness={0.85} />
+      </mesh>
+      {/* accent trim */}
+      <mesh position={[0, 1.11, 0]}>
+        <boxGeometry args={[1.62, 0.04, 1.22]} />
+        <meshStandardMaterial color={accent} roughness={0.5} />
+      </mesh>
+      {/* book object on top */}
+      <mesh position={[0, 1.27, 0]} rotation={[-0.15, 0, 0]} castShadow>
+        <boxGeometry args={[0.9, 0.18, 1.2]} />
+        <meshStandardMaterial color={accent} roughness={0.6} />
+      </mesh>
+      {/* framed cover hovering on wall behind */}
+      <Html
+        position={[0, 2.5, -0.85]}
+        transform
+        occlude={false}
+        distanceFactor={2.6}
+        style={{ pointerEvents: "none" }}
+      >
+        <div className="lit-frame">
+          <div className="lit-frame-author">{exhibit.author}</div>
+          <img src={exhibit.cover} alt={exhibit.work} draggable={false} />
+          <div className="lit-frame-title">{exhibit.work}</div>
+        </div>
+      </Html>
+
+      {/* proximity hint */}
+      {isNear && (
+        <Html position={[0, 2.05, 0]} center distanceFactor={6}>
+          <button
+            className="lit-hint"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpen();
+            }}
+          >
+            <span className="lit-hint-key">E</span>
+            Presiona <b>E</b> para explorar
+          </button>
+        </Html>
+      )}
+    </group>
+  );
+}
+
+// ---------- Room ----------
+function RoomShell({ room, onNear, onOpen, near }: {
+  room: Room;
+  near: NearTarget | null;
+  onNear: (n: NearTarget | null) => void;
+  onOpen: (e: Exhibit) => void;
+}) {
+  // Room is positioned so its "front" (door side) faces lobby (toward origin).
+  // We place it at distance ROOM_DIST along room.angle.
+  const cx = Math.cos(room.angle) * ROOM_DIST;
+  const cz = Math.sin(room.angle) * ROOM_DIST;
+  // Rotate the whole room so its local +z points away from the lobby.
+  const rotY = -room.angle - Math.PI / 2;
+
+  // Exhibits along back wall (negative-local-z, i.e. far from door)
+  const n = room.exhibits.length;
+  // Distribute: 3 on back wall, others on side walls if 4
+  const placements: { pos: [number, number, number]; face: number; exhibit: Exhibit }[] = [];
+  if (n <= 3) {
+    room.exhibits.forEach((ex, i) => {
+      const x = THREE.MathUtils.lerp(-ROOM_W / 2 + 3, ROOM_W / 2 - 3, n === 1 ? 0.5 : i / (n - 1));
+      placements.push({ pos: [x, 0, -ROOM_D / 2 + 1.5], face: 0, exhibit: ex });
+    });
+  } else {
+    // 4 exhibits: 2 on back, 1 on each side
+    placements.push({ pos: [-3.5, 0, -ROOM_D / 2 + 1.5], face: 0, exhibit: room.exhibits[0] });
+    placements.push({ pos: [3.5, 0, -ROOM_D / 2 + 1.5], face: 0, exhibit: room.exhibits[1] });
+    placements.push({ pos: [-ROOM_W / 2 + 1.5, 0, -3], face: Math.PI / 2, exhibit: room.exhibits[2] });
+    placements.push({ pos: [ROOM_W / 2 - 1.5, 0, -3], face: -Math.PI / 2, exhibit: room.exhibits[3] });
+  }
+
+  return (
+    <group position={[cx, 0, cz]} rotation={[0, rotY, 0]}>
+      {/* floor */}
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0.005, 0]} receiveShadow>
+        <planeGeometry args={[ROOM_W, ROOM_D]} />
+        <meshStandardMaterial color="#efe6d2" roughness={0.95} />
+      </mesh>
+      {/* walls: back, left, right; front has doorway */}
+      <Wall position={[0, WALL_H / 2, -ROOM_D / 2]} size={[ROOM_W, WALL_H, WALL_T]} />
+      <Wall position={[-ROOM_W / 2, WALL_H / 2, 0]} size={[WALL_T, WALL_H, ROOM_D]} />
+      <Wall position={[ROOM_W / 2, WALL_H / 2, 0]} size={[WALL_T, WALL_H, ROOM_D]} />
+      <WallWithDoor
+        center={[0, 0, ROOM_D / 2]}
+        length={ROOM_W}
+        rotationY={0}
+        doorWidth={DOOR_W}
+      />
+      {/* ceiling with central skylight */}
+      <mesh rotation-x={Math.PI / 2} position={[0, WALL_H, 0]}>
+        <planeGeometry args={[ROOM_W, ROOM_D]} />
+        <meshStandardMaterial color="#f9f2e1" roughness={1} side={THREE.DoubleSide} />
+      </mesh>
+      <Skylight position={[0, WALL_H - 0.02, -2]} size={[ROOM_W * 0.5, ROOM_D * 0.4]} />
+
+      {/* Room name plaque above door (visible from outside) */}
+      <Html position={[0, WALL_H - 0.4, ROOM_D / 2 + 0.05]} transform distanceFactor={3} occlude={false}>
+        <div className="lit-room-sign" style={{ borderColor: room.accent, color: room.accent }}>
+          <span>{room.name}</span>
+          <small>{room.curator}</small>
+        </div>
+      </Html>
+
+      {/* exhibits */}
+      {placements.map((p) => {
+        // world position for proximity check
+        const local = new THREE.Vector3(p.pos[0], p.pos[1], p.pos[2]);
+        const world = local.clone().applyEuler(new THREE.Euler(0, rotY, 0)).add(new THREE.Vector3(cx, 0, cz));
+        return (
+          <ExhibitNode
+            key={p.exhibit.id}
+            exhibit={p.exhibit}
+            roomId={room.id}
+            worldPosition={[world.x, world.y, world.z]}
+            facingY={rotY + p.face}
+            accent={room.accent}
+            near={near}
+            onNear={onNear}
+            onOpen={() => onOpen(p.exhibit)}
+          />
+        );
+      })}
+    </group>
+  );
+}
+
+// We need to attach ExhibitNode in world coords (not nested in the rotated room group) so the
+// proximity check uses world camera position. So we re-implement: place ExhibitNodes outside
+// the rotated room group using computed world positions; just render the room geometry inside
+// the rotated group.
+function RoomGeometry({ room }: { room: Room }) {
+  const cx = Math.cos(room.angle) * ROOM_DIST;
+  const cz = Math.sin(room.angle) * ROOM_DIST;
+  const rotY = -room.angle - Math.PI / 2;
+  return (
+    <group position={[cx, 0, cz]} rotation={[0, rotY, 0]}>
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0.005, 0]} receiveShadow>
+        <planeGeometry args={[ROOM_W, ROOM_D]} />
+        <meshStandardMaterial color="#efe6d2" roughness={0.95} />
+      </mesh>
+      <Wall position={[0, WALL_H / 2, -ROOM_D / 2]} size={[ROOM_W, WALL_H, WALL_T]} />
+      <Wall position={[-ROOM_W / 2, WALL_H / 2, 0]} size={[WALL_T, WALL_H, ROOM_D]} />
+      <Wall position={[ROOM_W / 2, WALL_H / 2, 0]} size={[WALL_T, WALL_H, ROOM_D]} />
+      <WallWithDoor center={[0, 0, ROOM_D / 2]} length={ROOM_W} rotationY={0} doorWidth={DOOR_W} />
+      <mesh rotation-x={Math.PI / 2} position={[0, WALL_H, 0]}>
+        <planeGeometry args={[ROOM_W, ROOM_D]} />
+        <meshStandardMaterial color="#f9f2e1" roughness={1} side={THREE.DoubleSide} />
+      </mesh>
+      <Skylight position={[0, WALL_H - 0.02, -2]} size={[ROOM_W * 0.5, ROOM_D * 0.4]} />
+      {/* baseboard wood trim */}
+      <mesh position={[0, 0.1, -ROOM_D / 2 + WALL_T / 2 + 0.01]}>
+        <boxGeometry args={[ROOM_W, 0.2, 0.04]} />
+        <meshStandardMaterial color={TRIM_COLOR} />
+      </mesh>
+    </group>
+  );
+}
+
+// ---------- Lobby ----------
+function Lobby() {
   return (
     <group>
-      {/* platform */}
-      <mesh position={[0, 0.5, 0]} castShadow>
-        <cylinderGeometry args={[1.4, 1.6, 1, 32]} />
-        <meshStandardMaterial color="#1a1d27" metalness={0.7} roughness={0.3} />
+      {/* main floor: large beige plane */}
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0, 0]} receiveShadow>
+        <planeGeometry args={[ROOM_DIST * 2 + ROOM_W, ROOM_DIST * 2 + ROOM_D]} />
+        <meshStandardMaterial color={FLOOR_COLOR} roughness={0.95} />
       </mesh>
-      <mesh position={[0, 1.01, 0]} rotation-x={-Math.PI / 2}>
-        <ringGeometry args={[1.3, 1.42, 48]} />
-        <meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={3} toneMapped={false} />
+      {/* central marble inlay */}
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0.01, 0]}>
+        <circleGeometry args={[7, 64]} />
+        <meshStandardMaterial color="#f1e8d2" roughness={0.7} metalness={0.05} />
       </mesh>
-      {/* floating book placeholder */}
-      <group ref={bookRef} position={[0, 1.6, 0]} onClick={onOpen}>
-        <mesh castShadow>
-          <boxGeometry args={[0.7, 1, 0.15]} />
-          <meshStandardMaterial color="#0f1218" metalness={0.5} roughness={0.4} emissive={accent} emissiveIntensity={0.25} />
-        </mesh>
-        <mesh position={[0, 0, 0.08]}>
-          <planeGeometry args={[0.55, 0.85]} />
-          <meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={1.2} toneMapped={false} />
-        </mesh>
-      </group>
-      {/* floating info badge */}
-      <Html position={[0, 2.9, 0]} center distanceFactor={8} occlude={false}>
-        <div className="museum-badge" onClick={onOpen}>
-          <div className="museum-badge-eyebrow">EXHIBIT</div>
-          <div className="museum-badge-title">{exhibit.title}</div>
-          <div className="museum-badge-meta">{exhibit.author} · {exhibit.date}</div>
-          <div className="museum-badge-cta">Open panel ▸</div>
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0.02, 0]}>
+        <ringGeometry args={[6.8, 7, 64]} />
+        <meshStandardMaterial color={TRIM_COLOR} />
+      </mesh>
+
+      {/* lobby outer walls (one per side) with door openings */}
+      {[0, Math.PI / 2, Math.PI, -Math.PI / 2].map((a, i) => {
+        const x = Math.cos(a) * (LOBBY_SIZE / 2);
+        const z = Math.sin(a) * (LOBBY_SIZE / 2);
+        return (
+          <WallWithDoor
+            key={i}
+            center={[x, 0, z]}
+            length={LOBBY_SIZE}
+            rotationY={-a + Math.PI / 2}
+            doorWidth={DOOR_W + 1}
+            height={WALL_H + 1}
+          />
+        );
+      })}
+
+      {/* high ceiling with grand skylight */}
+      <mesh rotation-x={Math.PI / 2} position={[0, WALL_H + 1, 0]}>
+        <planeGeometry args={[LOBBY_SIZE, LOBBY_SIZE]} />
+        <meshStandardMaterial color="#f9f2e1" roughness={1} side={THREE.DoubleSide} />
+      </mesh>
+      <Skylight position={[0, WALL_H + 0.98, 0]} size={[10, 10]} />
+
+      {/* central floating books sculpture */}
+      <FloatingBooksSculpture />
+
+      {/* big floating museum title */}
+      <Html position={[0, 6.2, 0]} center distanceFactor={8}>
+        <div className="lit-museum-title">
+          <small>MUSEO LITERARIO</small>
+          <span>CANON LITERARIO ALTERNATIVO</span>
+        </div>
+      </Html>
+
+      {/* directory: pedestal map at front */}
+      <mesh position={[0, 0.6, 9]} castShadow>
+        <boxGeometry args={[3, 1.2, 0.6]} />
+        <meshStandardMaterial color={PEDESTAL_COLOR} roughness={0.9} />
+      </mesh>
+      <Html position={[0, 1.55, 9]} transform distanceFactor={3.2} rotation={[-0.4, 0, 0]}>
+        <div className="lit-directory">
+          <h4>DIRECTORIO</h4>
+          <ul>
+            {ROOMS.map((r) => (
+              <li key={r.id}>
+                <span style={{ background: r.accent }} />
+                {r.name}
+              </li>
+            ))}
+          </ul>
         </div>
       </Html>
     </group>
-  );
-}
-
-function TimelineHall() {
-  const events = ["Antiquity", "Medieval", "Renaissance", "Enlightenment", "Romanticism", "Modernism", "Contemporary"];
-  return (
-    <group>
-      <mesh position={[0, 0.01, 0]} rotation-x={-Math.PI / 2}>
-        <planeGeometry args={[8, 30]} />
-        <meshStandardMaterial color="#11131a" metalness={0.5} roughness={0.5} />
-      </mesh>
-      <LightStrip position={[-3.5, 0.03, 0]} length={30} color="#7dd3fc" />
-      <LightStrip position={[3.5, 0.03, 0]} length={30} color="#a78bfa" />
-      {events.map((e, i) => {
-        const z = -13 + i * 4.3;
-        return (
-          <group key={e} position={[0, 0, z]}>
-            <mesh position={[0, 1.5, 0]}>
-              <boxGeometry args={[0.1, 3, 0.1]} />
-              <meshStandardMaterial color="#7dd3fc" emissive="#7dd3fc" emissiveIntensity={1.2} toneMapped={false} />
-            </mesh>
-            <Html position={[0, 2.6, 0]} center distanceFactor={9}>
-              <div className="museum-tl-node">{e}</div>
-            </Html>
-          </group>
-        );
-      })}
-    </group>
-  );
-}
-
-function AuthorGallery() {
-  return (
-    <group>
-      {[-5, 0, 5].map((x) => (
-        <group key={x} position={[x, 0, -4]}>
-          <mesh position={[0, 1.8, 0]} castShadow>
-            <boxGeometry args={[2.4, 3.2, 0.15]} />
-            <meshStandardMaterial color="#15171f" metalness={0.4} roughness={0.5} />
-          </mesh>
-          <mesh position={[0, 1.85, 0.09]}>
-            <planeGeometry args={[2.1, 2.9]} />
-            <meshStandardMaterial color="#1f2230" emissive="#5fb8ff" emissiveIntensity={0.4} />
-          </mesh>
-          <Html position={[0, 0.6, 0.1]} center distanceFactor={9}>
-            <div className="museum-portrait-label">Author Placeholder</div>
-          </Html>
-        </group>
-      ))}
-    </group>
-  );
-}
-
-function ReflectionRoom() {
-  return (
-    <group>
-      {[-3, 0, 3].map((x) => (
-        <mesh key={x} position={[x, 0.4, 2]} castShadow>
-          <boxGeometry args={[1.6, 0.8, 1.4]} />
-          <meshStandardMaterial color="#1a1d27" metalness={0.4} roughness={0.6} />
-        </mesh>
-      ))}
-      <Html position={[0, 2.8, -5]} center distanceFactor={9}>
-        <div className="museum-quote">“A room of quiet, for thoughts that need space.”</div>
-      </Html>
-      <pointLight position={[0, 4, 0]} color="#a78bfa" intensity={20} distance={18} />
-    </group>
-  );
-}
-
-function RoomMarker({ room, onTeleport }: { room: Room; onTeleport: (r: Room) => void }) {
-  return (
-    <Html position={[room.position[0], 4.5, room.position[2]]} center distanceFactor={12} occlude={false}>
-      <button className="museum-portal" onClick={() => onTeleport(room)}>
-        <span className="museum-portal-dot" />
-        {room.name}
-      </button>
-    </Html>
   );
 }
 
 // ---------- Scene ----------
-export function MuseumScene({
-  rooms,
-  onOpenExhibit,
+function Scene({
   teleportTo,
-  onTeleport,
+  onPlayerMove,
+  near,
+  onNear,
+  onOpen,
 }: {
-  rooms: Room[];
-  onOpenExhibit: (r: Room) => void;
   teleportTo: [number, number, number] | null;
-  onTeleport: (r: Room) => void;
+  onPlayerMove: (pos: THREE.Vector3) => void;
+  near: NearTarget | null;
+  onNear: (n: NearTarget | null) => void;
+  onOpen: (e: Exhibit, r: Room) => void;
 }) {
   return (
     <>
-      <color attach="background" args={["#06070b"]} />
-      <fog attach="fog" args={["#06070b", 30, 110]} />
-      <ambientLight intensity={0.25} />
-      <hemisphereLight args={["#88b8ff", "#0a0a14", 0.4]} />
+      <color attach="background" args={["#f4ecdc"]} />
+      <fog attach="fog" args={["#f4ecdc", 40, 130]} />
+      <ambientLight intensity={0.65} />
+      <hemisphereLight args={["#fff4d8", "#d8c9a5", 0.9]} />
+      <directionalLight
+        position={[20, 25, 10]}
+        intensity={1.6}
+        color="#fff6e3"
+        castShadow
+        shadow-mapSize-width={1024}
+        shadow-mapSize-height={1024}
+      />
       <Suspense fallback={null}>
-        <Environment preset="night" />
+        <Sky sunPosition={[20, 25, 10]} turbidity={2} rayleigh={0.6} mieCoefficient={0.005} mieDirectionalG={0.7} />
       </Suspense>
-      <Stars radius={120} depth={60} count={1500} factor={3} fade speed={0.5} />
 
-      <Floor />
       <Lobby />
-
-      {rooms.map((r) => (
-        <group key={r.id}>
-          <Corridor from={[0, 0, 0]} to={r.position} />
-          <RoomShell position={r.position} hue={r.hue}>
-            {r.kind === "exhibit" && r.exhibit && (
-              <ExhibitPlatform exhibit={r.exhibit} hue={r.hue} onOpen={() => onOpenExhibit(r)} />
-            )}
-            {r.kind === "timeline" && <TimelineHall />}
-            {r.kind === "gallery" && <AuthorGallery />}
-            {r.kind === "reflection" && <ReflectionRoom />}
-          </RoomShell>
-          <RoomMarker room={r} onTeleport={onTeleport} />
-        </group>
+      {ROOMS.map((r) => (
+        <RoomGeometry key={r.id} room={r} />
       ))}
 
-      {/* Title above plaza */}
-      <Html position={[0, 9, 14]} center distanceFactor={14}>
-        <div className="museum-title">LITERATURA · MUSEUM</div>
-      </Html>
+      {/* Exhibits live in world space so proximity checks work consistently */}
+      {ROOMS.map((room) => {
+        const cx = Math.cos(room.angle) * ROOM_DIST;
+        const cz = Math.sin(room.angle) * ROOM_DIST;
+        const rotY = -room.angle - Math.PI / 2;
+        const n = room.exhibits.length;
+        const local: { pos: [number, number, number]; face: number; ex: Exhibit }[] = [];
+        if (n <= 3) {
+          room.exhibits.forEach((ex, i) => {
+            const x = THREE.MathUtils.lerp(-ROOM_W / 2 + 3, ROOM_W / 2 - 3, n === 1 ? 0.5 : i / (n - 1));
+            local.push({ pos: [x, 0, -ROOM_D / 2 + 1.5], face: 0, ex });
+          });
+        } else {
+          local.push({ pos: [-3.5, 0, -ROOM_D / 2 + 1.5], face: 0, ex: room.exhibits[0] });
+          local.push({ pos: [3.5, 0, -ROOM_D / 2 + 1.5], face: 0, ex: room.exhibits[1] });
+          local.push({ pos: [-ROOM_W / 2 + 1.5, 0, -3], face: Math.PI / 2, ex: room.exhibits[2] });
+          local.push({ pos: [ROOM_W / 2 - 1.5, 0, -3], face: -Math.PI / 2, ex: room.exhibits[3] });
+        }
+        return local.map((p) => {
+          const world = new THREE.Vector3(p.pos[0], p.pos[1], p.pos[2])
+            .applyEuler(new THREE.Euler(0, rotY, 0))
+            .add(new THREE.Vector3(cx, 0, cz));
+          return (
+            <ExhibitNode
+              key={p.ex.id}
+              exhibit={p.ex}
+              roomId={room.id}
+              worldPosition={[world.x, world.y, world.z]}
+              facingY={rotY + p.face}
+              accent={room.accent}
+              near={near}
+              onNear={onNear}
+              onOpen={() => onOpen(p.ex, room)}
+            />
+          );
+        });
+      })}
 
-      <Player teleportTo={teleportTo} />
+      <Player teleportTo={teleportTo} onMove={onPlayerMove} />
     </>
   );
 }
 
-// ---------- UI Overlay ----------
+// ---------- App + HUD ----------
 export function MuseumApp() {
-  const [rooms, setRooms] = useState<Room[]>(DEFAULT_ROOMS);
-  const [activeExhibit, setActiveExhibit] = useState<Room | null>(null);
-  const [teleport, setTeleport] = useState<[number, number, number] | null>(null);
   const [started, setStarted] = useState(false);
+  const [teleport, setTeleport] = useState<[number, number, number] | null>(null);
+  const [near, setNear] = useState<NearTarget | null>(null);
+  const [active, setActive] = useState<{ exhibit: Exhibit; room: Room } | null>(null);
   const [showMap, setShowMap] = useState(false);
-  const controlsRef = useRef<any>(null);
+  const [visited, setVisited] = useState<Set<string>>(new Set());
+  const nearRef = useRef<NearTarget | null>(null);
+  const lastNearExhibitRef = useRef<{ exhibit: Exhibit; room: Room } | null>(null);
 
-  const update = (roomId: string, patch: Partial<Exhibit>) => {
-    setRooms((rs) =>
-      rs.map((r) =>
-        r.id === roomId && r.exhibit ? { ...r, exhibit: { ...r.exhibit, ...patch } } : r
-      )
-    );
-    setActiveExhibit((cur) =>
-      cur && cur.id === roomId && cur.exhibit ? { ...cur, exhibit: { ...cur.exhibit, ...patch } } : cur
-    );
-  };
+  // Track near in a ref for key handler
+  useEffect(() => {
+    nearRef.current = near;
+    if (near) {
+      for (const r of ROOMS) {
+        const ex = r.exhibits.find((e) => e.id === near.exhibitId);
+        if (ex) {
+          lastNearExhibitRef.current = { exhibit: ex, room: r };
+          break;
+        }
+      }
+    }
+  }, [near]);
 
-  const goTo = (r: Room) => {
-    setTeleport([r.position[0], 0, r.position[2]]);
-    setTimeout(() => setTeleport(null), 50);
+  // Press E to open the currently-near exhibit
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code === "KeyE" && nearRef.current && !active) {
+        const cur = lastNearExhibitRef.current;
+        if (cur && cur.exhibit.id === nearRef.current.exhibitId) {
+          setActive(cur);
+          setVisited((v) => new Set(v).add(cur.exhibit.id));
+        }
+      } else if (e.code === "Escape" && active) {
+        setActive(null);
+      } else if (e.code === "KeyM") {
+        setShowMap((s) => !s);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [active]);
+
+  const handleOpen = useCallback((exhibit: Exhibit, room: Room) => {
+    setActive({ exhibit, room });
+    setVisited((v) => new Set(v).add(exhibit.id));
+  }, []);
+
+  const goToRoom = (room: Room) => {
+    // Position player just inside the room doorway, looking toward the back wall
+    const cx = Math.cos(room.angle) * (ROOM_DIST - ROOM_D / 2 + 2);
+    const cz = Math.sin(room.angle) * (ROOM_DIST - ROOM_D / 2 + 2);
+    setTeleport([cx, 0, cz]);
+    setTimeout(() => setTeleport(null), 60);
     setShowMap(false);
   };
 
+  const goToLobby = () => {
+    setTeleport([0, 0, 8]);
+    setTimeout(() => setTeleport(null), 60);
+  };
+
+  const totalExhibits = ROOMS.reduce((a, r) => a + r.exhibits.length, 0);
+
   return (
-    <div className="museum-root">
+    <div className="lit-root">
       <Canvas
         shadows
-        camera={{ position: [0, 1.7, 22], fov: 70 }}
+        camera={{ position: [0, 1.7, 10], fov: 65 }}
         gl={{ antialias: true, powerPreference: "high-performance" }}
       >
-        <MuseumScene
-          rooms={rooms}
-          onOpenExhibit={(r) => setActiveExhibit(r)}
+        <Scene
           teleportTo={teleport}
-          onTeleport={goTo}
+          onPlayerMove={() => {}}
+          near={near}
+          onNear={setNear}
+          onOpen={handleOpen}
         />
-        {started && <PointerLockControls ref={controlsRef} />}
+        {started && <PointerLockControls />}
       </Canvas>
 
       {/* HUD */}
-      <div className="museum-hud-top">
-        <div className="museum-logo">
-          <span className="museum-logo-dot" />
-          LITERATURA
+      <header className="lit-hud-top">
+        <div className="lit-brand">
+          <span className="lit-brand-mark" />
+          <div>
+            <small>MUSEO LITERARIO</small>
+            <strong>Canon Alternativo</strong>
+          </div>
         </div>
-        <div className="museum-hud-right">
-          <button className="museum-chip" onClick={() => setShowMap((s) => !s)}>
-            Map
-          </button>
-          <button
-            className="museum-chip"
-            onClick={() => goTo({ id: "lobby", name: "Lobby", kind: "exhibit", position: [0, 0, 0], hue: 220 })}
-          >
-            Return to Lobby
-          </button>
-        </div>
-      </div>
+        <nav className="lit-hud-nav">
+          <button className="lit-chip" onClick={() => setShowMap(true)}>Mapa</button>
+          <button className="lit-chip" onClick={goToLobby}>Vestíbulo</button>
+          <div className="lit-passport" title="Pasaporte literario">
+            <span className="lit-passport-dot" />
+            {visited.size}/{totalExhibits} sellos
+          </div>
+        </nav>
+      </header>
 
-      <div className="museum-hud-bottom">
-        <span>WASD / Arrows · Move</span>
-        <span>Mouse · Look</span>
-        <span>Shift · Run</span>
-        <span>Click portals · Teleport</span>
-      </div>
+      <footer className="lit-hud-bottom">
+        <span>WASD · Caminar</span>
+        <span>Mouse · Mirar</span>
+        <span>Shift · Correr</span>
+        <span><kbd>E</kbd> · Explorar</span>
+        <span><kbd>M</kbd> · Mapa</span>
+      </footer>
 
       {/* Start overlay */}
       {!started && (
-        <div className="museum-overlay">
-          <div className="museum-overlay-card">
-            <div className="museum-overlay-eyebrow">VIRTUAL EXHIBITION</div>
-            <h1>Literatura Museum</h1>
+        <div className="lit-start">
+          <div className="lit-start-card">
+            <div className="lit-start-eyebrow">EXPOSICIÓN VIRTUAL · 2026</div>
+            <h1>Canon Literario<br />Alternativo</h1>
             <p>
-              A futuristic, walkable exhibition space for literary works. Wander the atrium, step into halls,
-              and curate any book, manuscript, or author with editable holographic panels.
+              Un museo recorrible en primera persona dedicado a las voces históricamente
+              excluidas del canon: literatura LGBTQIA+, andina, amazónica, indígena y feminista
+              de América Latina.
             </p>
-            <button
-              className="museum-cta"
-              onClick={() => setStarted(true)}
-            >
-              Enter the Museum →
+            <button className="lit-cta" onClick={() => setStarted(true)}>
+              Entrar al museo →
             </button>
-            <div className="museum-overlay-hint">Click to engage mouse-look. Press <kbd>Esc</kbd> to release.</div>
+            <div className="lit-start-hint">
+              Clic para activar la mirada · <kbd>Esc</kbd> para liberar el cursor
+            </div>
           </div>
         </div>
       )}
 
       {/* Map */}
       {showMap && (
-        <div className="museum-map" onClick={() => setShowMap(false)}>
-          <div className="museum-map-card" onClick={(e) => e.stopPropagation()}>
-            <div className="museum-map-title">Museum Map</div>
-            <div className="museum-map-grid">
-              <div className="museum-map-lobby">Lobby</div>
-              {rooms.map((r) => (
-                <button key={r.id} className="museum-map-room" onClick={() => goTo(r)}>
-                  <span style={{ background: `hsl(${r.hue} 90% 65%)` }} />
-                  {r.name}
-                </button>
-              ))}
+        <div className="lit-map" onClick={() => setShowMap(false)}>
+          <div className="lit-map-card" onClick={(e) => e.stopPropagation()}>
+            <header>
+              <small>PLANO DEL MUSEO</small>
+              <button className="lit-x" onClick={() => setShowMap(false)}>✕</button>
+            </header>
+            <div className="lit-map-grid">
+              <button className="lit-map-tile lit-map-lobby" onClick={goToLobby}>
+                <small>VESTÍBULO</small>
+                <strong>Canon Alternativo</strong>
+              </button>
+              {ROOMS.map((r) => {
+                const seen = r.exhibits.filter((e) => visited.has(e.id)).length;
+                return (
+                  <button
+                    key={r.id}
+                    className="lit-map-tile"
+                    onClick={() => goToRoom(r)}
+                    style={{ borderColor: r.accent }}
+                  >
+                    <small style={{ color: r.accent }}>SALA</small>
+                    <strong>{r.name}</strong>
+                    <ul>
+                      {r.exhibits.map((ex) => (
+                        <li key={ex.id} className={visited.has(ex.id) ? "seen" : ""}>
+                          {ex.author} — <em>{ex.work}</em>
+                        </li>
+                      ))}
+                    </ul>
+                    <span className="lit-map-meta">{seen}/{r.exhibits.length} visitadas</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
       )}
 
-      {/* Exhibit Panel */}
-      {activeExhibit && activeExhibit.exhibit && (
-        <div className="museum-panel-wrap" onClick={() => setActiveExhibit(null)}>
-          <div className="museum-panel" onClick={(e) => e.stopPropagation()}>
-            <div className="museum-panel-head">
-              <div className="museum-panel-eyebrow">{activeExhibit.name}</div>
-              <button className="museum-close" onClick={() => setActiveExhibit(null)}>✕</button>
-            </div>
-            <ExhibitEditor
-              exhibit={activeExhibit.exhibit}
-              onChange={(patch) => update(activeExhibit.id, patch)}
-            />
-          </div>
-        </div>
-      )}
+      {/* Exhibit panel */}
+      {active && <ExhibitPanel data={active} onClose={() => setActive(null)} />}
     </div>
   );
 }
 
-function ExhibitEditor({ exhibit, onChange }: { exhibit: Exhibit; onChange: (p: Partial<Exhibit>) => void }) {
-  const [edit, setEdit] = useState(false);
+function ExhibitPanel({ data, onClose }: { data: { exhibit: Exhibit; room: Room }; onClose: () => void }) {
+  const { exhibit, room } = data;
+  const [expanded, setExpanded] = useState(false);
   const qrSrc = useMemo(
-    () => `https://api.qrserver.com/v1/create-qr-code/?size=180x180&bgcolor=10-12-18&color=7dd3fc&data=${encodeURIComponent(exhibit.qrUrl || "https://example.com")}`,
-    [exhibit.qrUrl]
+    () =>
+      `https://api.qrserver.com/v1/create-qr-code/?size=180x180&bgcolor=f4ecdc&color=2a2419&data=${encodeURIComponent(
+        exhibit.qrUrl || `https://www.google.com/search?q=${encodeURIComponent(exhibit.author + " " + exhibit.work)}`,
+      )}`,
+    [exhibit],
   );
-
-  const field = (label: string, key: keyof Exhibit, multiline = false) => (
-    <div className="museum-field">
-      <div className="museum-field-label">{label}</div>
-      {edit ? (
-        multiline ? (
-          <textarea value={exhibit[key]} onChange={(e) => onChange({ [key]: e.target.value } as Partial<Exhibit>)} rows={3} />
-        ) : (
-          <input value={exhibit[key]} onChange={(e) => onChange({ [key]: e.target.value } as Partial<Exhibit>)} />
-        )
-      ) : (
-        <div className="museum-field-value">{exhibit[key] || "—"}</div>
-      )}
-    </div>
-  );
-
   return (
-    <div className="museum-panel-body">
-      <div className="museum-panel-headline">
-        <div>
-          <h2>{exhibit.title}</h2>
-          <div className="museum-byline">{exhibit.author} · {exhibit.date}</div>
-        </div>
-        <button className="museum-chip" onClick={() => setEdit((v) => !v)}>
-          {edit ? "Done" : "Edit"}
-        </button>
-      </div>
+    <div className="lit-panel-wrap" onClick={onClose}>
+      <article className="lit-panel" onClick={(e) => e.stopPropagation()}>
+        <header className="lit-panel-head" style={{ borderTopColor: room.accent }}>
+          <div>
+            <small style={{ color: room.accent }}>{room.name}</small>
+            <h2>{exhibit.author}</h2>
+            {exhibit.nationality && <p className="lit-panel-nat">{exhibit.nationality}</p>}
+          </div>
+          <button className="lit-x" onClick={onClose}>✕</button>
+        </header>
+        <div className="lit-panel-body">
+          <figure className="lit-panel-cover">
+            <img src={exhibit.cover} alt={exhibit.work} />
+            <figcaption>
+              <em>{exhibit.work}</em>
+              {exhibit.year && <span> · {exhibit.year}</span>}
+            </figcaption>
+          </figure>
+          <div className="lit-panel-text">
+            <h3>Descripción</h3>
+            <p>{exhibit.description}</p>
+            <h3>¿Por qué merece estar en el canon?</h3>
+            <p>{exhibit.why}</p>
 
-      <div className="museum-grid">
-        {field("Title", "title")}
-        {field("Author", "author")}
-        {field("Publication date", "date")}
-        {field("Literary movement", "movement")}
-        {field("Genre", "genre")}
-        {field("External link (QR)", "qrUrl")}
-      </div>
-
-      {field("Summary", "summary", true)}
-      {field("Literary analysis", "analysis", true)}
-      {field("Historical context", "context", true)}
-
-      <div className="museum-multimedia">
-        <div className="museum-multimedia-col">
-          <div className="museum-field-label">QR / external resources</div>
-          <div className="museum-qr">
-            <img src={qrSrc} alt="QR" />
-            <a href={exhibit.qrUrl} target="_blank" rel="noreferrer">{exhibit.qrUrl}</a>
+            <button className="lit-toggle" onClick={() => setExpanded((s) => !s)}>
+              {expanded ? "Ocultar materiales" : "Ver materiales complementarios"} {expanded ? "▴" : "▾"}
+            </button>
+            {expanded && (
+              <div className="lit-extra">
+                <div className="lit-qr">
+                  <img src={qrSrc} alt="QR" />
+                  <small>Escanea para leer más</small>
+                </div>
+                <ul className="lit-resources">
+                  <li>
+                    <a
+                      href={`https://www.google.com/search?q=${encodeURIComponent(exhibit.author + " " + exhibit.work)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Buscar en la web →
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href={`https://es.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(exhibit.author)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Biografía en Wikipedia →
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href={`https://www.goodreads.com/search?q=${encodeURIComponent(exhibit.work)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Reseñas en Goodreads →
+                    </a>
+                  </li>
+                </ul>
+              </div>
+            )}
           </div>
         </div>
-        <div className="museum-multimedia-col">
-          <div className="museum-field-label">Multimedia slots</div>
-          <div className="museum-slots">
-            <div className="museum-slot">Image</div>
-            <div className="museum-slot">Video</div>
-            <div className="museum-slot">Audio</div>
-            <div className="museum-slot">Timeline</div>
-            <div className="museum-slot">Map</div>
-            <div className="museum-slot">Characters</div>
-          </div>
-        </div>
-      </div>
+      </article>
     </div>
   );
 }
