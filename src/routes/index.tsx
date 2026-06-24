@@ -4,10 +4,18 @@ import { MuseumApp } from "@/museum/Museum";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Literatura — A 3D Literature Museum" },
-      { name: "description", content: "An immersive, walkable 3D museum for exhibiting literary works, authors, timelines, and analysis." },
-      { property: "og:title", content: "Literatura — A 3D Literature Museum" },
-      { property: "og:description", content: "Walk through a futuristic exhibition space and curate any literary work." },
+      { title: "Canon Literario Alternativo — Museo 3D" },
+      {
+        name: "description",
+        content:
+          "Museo 3D recorrible dedicado al canon literario alternativo: voces LGBTQIA+, andinas, amazónicas, indígenas y feministas de América Latina.",
+      },
+      { property: "og:title", content: "Canon Literario Alternativo — Museo 3D" },
+      {
+        property: "og:description",
+        content:
+          "Camina por las salas Bianca B., José David, Luna B. y Joaquín V., y descubre obras históricamente excluidas del canon.",
+      },
     ],
   }),
   component: Index,
