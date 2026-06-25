@@ -686,6 +686,70 @@ body {
 }
 .lit-resources a:hover { color: #8c6a3f; }
 
+/* ---- Pedestal minimal label (in-scene) ---- */
+.lit-label {
+  min-width: 220px; max-width: 260px;
+  background: #faf4e4;
+  border: 1px solid var(--lit-line);
+  border-top: 3px solid var(--lit-wood);
+  padding: 10px 14px 12px;
+  font-family: "Cormorant Garamond", "Georgia", serif;
+  color: var(--lit-ink);
+  text-align: center;
+  box-shadow: 0 6px 16px rgba(40,30,10,0.25);
+}
+.lit-label small {
+  display: block;
+  font-family: "Inter", sans-serif;
+  font-size: 9px; letter-spacing: 0.34em; text-transform: uppercase;
+  color: var(--lit-ink-soft);
+}
+.lit-label strong {
+  display: block; margin-top: 4px;
+  font-size: 20px; font-weight: 500; letter-spacing: 0.01em;
+}
+.lit-label em {
+  display: block; margin-top: 2px;
+  font-style: italic; font-size: 14px; color: var(--lit-ink-soft);
+}
+
+/* ---- Wall-mounted cover (inside 3D frame) ---- */
+.lit-wall-frame {
+  width: 220px;
+  padding: 0;
+  background: transparent;
+}
+.lit-wall-cover {
+  width: 220px; height: 310px;
+  display: block; object-fit: cover;
+  background: #ece3cf;
+  box-shadow: inset 0 0 0 1px var(--lit-line);
+}
+.lit-wall-frame .lit-cover-fallback { width: 220px; height: 310px; }
+.lit-wall-frame .lit-cover-loading { width: 220px; height: 310px; }
+
+/* ---- Corridor wall sign ---- */
+.lit-corridor-sign {
+  font-family: "Cormorant Garamond", "Georgia", serif;
+  text-align: left;
+  user-select: none;
+  width: 300px;
+}
+.lit-corridor-sign small {
+  display: block; font-family: "Inter", sans-serif;
+  font-size: 11px; letter-spacing: 0.5em; opacity: 0.75;
+}
+.lit-corridor-sign strong {
+  display: block; font-size: 48px; font-weight: 500;
+  letter-spacing: 0.02em; line-height: 1;
+  margin-top: 6px;
+}
+.lit-corridor-sign span {
+  display: block; margin-top: 6px;
+  font-family: "Inter", sans-serif; font-size: 11px;
+  letter-spacing: 0.32em; text-transform: uppercase; opacity: 0.7;
+}
+
 @media (max-width: 760px) {
   .lit-panel-body { grid-template-columns: 1fr; }
   .lit-extra { grid-template-columns: 1fr; }
