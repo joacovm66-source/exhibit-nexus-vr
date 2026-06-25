@@ -705,12 +705,19 @@ function Lobby() {
       {/* central marble inlay */}
       <mesh rotation-x={-Math.PI / 2} position={[0, 0.01, 0]}>
         <circleGeometry args={[7, 64]} />
-        <meshStandardMaterial color="#f1e8d2" roughness={0.7} metalness={0.05} />
+        <meshStandardMaterial color={MARBLE_COLOR} roughness={0.5} metalness={0.08} />
       </mesh>
       <mesh rotation-x={-Math.PI / 2} position={[0, 0.02, 0]}>
         <ringGeometry args={[6.8, 7, 64]} />
         <meshStandardMaterial color={TRIM_COLOR} />
       </mesh>
+      {/* compass star inlay */}
+      {[0, Math.PI / 4, Math.PI / 2, (3 * Math.PI) / 4].map((a, i) => (
+        <mesh key={i} rotation={[-Math.PI / 2, 0, a]} position={[0, 0.015, 0]}>
+          <planeGeometry args={[13.2, 0.06]} />
+          <meshStandardMaterial color={TRIM_COLOR} opacity={0.55} transparent />
+        </mesh>
+      ))}
 
       {/* lobby outer walls (one per side) with door openings */}
       {[0, Math.PI / 2, Math.PI, -Math.PI / 2].map((a, i) => {
@@ -738,8 +745,52 @@ function Lobby() {
       {/* central floating books sculpture */}
       <FloatingBooksSculpture />
 
+      {/* eight columns surrounding the rotunda */}
+      {Array.from({ length: 8 }).map((_, i) => {
+        const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
+        const r = 9;
+        return (
+          <Column
+            key={`col${i}`}
+            position={[Math.cos(a) * r, 0, Math.sin(a) * r]}
+            height={WALL_H + 1}
+            radius={0.38}
+          />
+        );
+      })}
+
+      {/* tall library shelves in lobby corners */}
+      {[
+        { p: [-LOBBY_SIZE / 2 + 0.6, 0, -LOBBY_SIZE / 2 + 3], r: Math.PI / 2 },
+        { p: [LOBBY_SIZE / 2 - 0.6, 0, -LOBBY_SIZE / 2 + 3], r: -Math.PI / 2 },
+        { p: [-LOBBY_SIZE / 2 + 0.6, 0, LOBBY_SIZE / 2 - 3], r: Math.PI / 2 },
+        { p: [LOBBY_SIZE / 2 - 0.6, 0, LOBBY_SIZE / 2 - 3], r: -Math.PI / 2 },
+      ].map((s, i) => (
+        <Bookshelf key={`bs${i}`} position={s.p as [number, number, number]} rotationY={s.r} width={5} />
+      ))}
+
+      {/* reading area: benches & planters in the four diagonals */}
+      {[
+        [-9, -9],
+        [9, -9],
+        [-9, 9],
+        [9, 9],
+      ].map(([x, z], i) => (
+        <group key={`rd${i}`} position={[x, 0, z]}>
+          <Bench position={[0, 0, 0]} rotationY={Math.atan2(-z, -x) + Math.PI / 2} />
+          <Planter position={[1.6, 0, 0]} />
+        </group>
+      ))}
+
+      {/* hanging lamps over the rotunda */}
+      {[
+        [-4, 0, -4], [4, 0, -4], [-4, 0, 4], [4, 0, 4],
+      ].map((p, i) => (
+        <HangingLamp key={`lp${i}`} position={[p[0], WALL_H - 0.6, p[2]]} color="#ffe4b0" intensity={16} />
+      ))}
+
       {/* big floating museum title */}
-      <Html position={[0, 6.2, 0]} center distanceFactor={8}>
+      <Html position={[0, 7.6, 0]} center distanceFactor={9}>
         <div className="lit-museum-title">
           <small>MUSEO LITERARIO</small>
           <span>CANON LITERARIO ALTERNATIVO</span>
