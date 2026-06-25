@@ -921,6 +921,9 @@ export function MuseumApp() {
           break;
         }
       }
+    } else if (active) {
+      // Auto-close panel when player walks away
+      setActive(null);
     }
   }, [near]);
 
