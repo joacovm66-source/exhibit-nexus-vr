@@ -1098,7 +1098,7 @@ function ExhibitPanel({ data, onClose }: { data: { exhibit: Exhibit; room: Room 
         </header>
         <div className="lit-panel-body">
           <figure className="lit-panel-cover">
-            <img src={exhibit.cover} alt={exhibit.work} />
+            <CoverImg exhibit={exhibit} className="lit-panel-cover-img" />
             <figcaption>
               <em>{exhibit.work}</em>
               {exhibit.year && <span> · {exhibit.year}</span>}
