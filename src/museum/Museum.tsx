@@ -223,6 +223,197 @@ function FloatingBooksSculpture() {
   );
 }
 
+// ---------- Architectural elements ----------
+function Column({ position, height = WALL_H, radius = 0.32, color = MARBLE_COLOR }: {
+  position: [number, number, number]; height?: number; radius?: number; color?: string;
+}) {
+  return (
+    <group position={position}>
+      {/* base */}
+      <mesh position={[0, 0.12, 0]} castShadow receiveShadow>
+        <boxGeometry args={[radius * 2.6, 0.24, radius * 2.6]} />
+        <meshStandardMaterial color={TRIM_COLOR} roughness={0.6} />
+      </mesh>
+      {/* shaft */}
+      <mesh position={[0, height / 2 + 0.1, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[radius, radius * 1.05, height - 0.4, 24]} />
+        <meshStandardMaterial color={color} roughness={0.4} metalness={0.05} />
+      </mesh>
+      {/* capital */}
+      <mesh position={[0, height - 0.05, 0]} castShadow>
+        <boxGeometry args={[radius * 2.6, 0.22, radius * 2.6]} />
+        <meshStandardMaterial color={TRIM_COLOR} roughness={0.6} />
+      </mesh>
+    </group>
+  );
+}
+
+function Bench({ position, rotationY = 0 }: { position: [number, number, number]; rotationY?: number }) {
+  return (
+    <group position={position} rotation={[0, rotationY, 0]}>
+      <mesh position={[0, 0.45, 0]} castShadow receiveShadow>
+        <boxGeometry args={[2.4, 0.18, 0.7]} />
+        <meshStandardMaterial color={WOOD_DARK} roughness={0.55} />
+      </mesh>
+      {[-1, 1].map((s) => (
+        <mesh key={s} position={[s * 1.0, 0.22, 0]} castShadow>
+          <boxGeometry args={[0.18, 0.5, 0.7]} />
+          <meshStandardMaterial color={TRIM_COLOR} roughness={0.6} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function HangingLamp({ position, color = "#ffe6b5", intensity = 14 }: {
+  position: [number, number, number]; color?: string; intensity?: number;
+}) {
+  return (
+    <group position={position}>
+      {/* cord */}
+      <mesh position={[0, 0.8, 0]}>
+        <cylinderGeometry args={[0.015, 0.015, 1.6, 6]} />
+        <meshStandardMaterial color="#3a3022" />
+      </mesh>
+      {/* shade */}
+      <mesh position={[0, 0, 0]} castShadow>
+        <coneGeometry args={[0.32, 0.45, 18, 1, true]} />
+        <meshStandardMaterial color="#f7e8c2" emissive={color} emissiveIntensity={0.45} roughness={0.4} side={THREE.DoubleSide} />
+      </mesh>
+      <pointLight position={[0, -0.3, 0]} intensity={intensity} distance={9} color={color} decay={1.8} />
+    </group>
+  );
+}
+
+function Planter({ position }: { position: [number, number, number] }) {
+  return (
+    <group position={position}>
+      <mesh position={[0, 0.3, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.42, 0.36, 0.6, 18]} />
+        <meshStandardMaterial color="#e3d3a8" roughness={0.85} />
+      </mesh>
+      {/* foliage */}
+      <mesh position={[0, 0.95, 0]} castShadow>
+        <sphereGeometry args={[0.55, 16, 12]} />
+        <meshStandardMaterial color="#6f8a5c" roughness={0.85} />
+      </mesh>
+      <mesh position={[0.25, 1.1, 0.1]} castShadow>
+        <sphereGeometry args={[0.32, 12, 10]} />
+        <meshStandardMaterial color="#7e9a66" roughness={0.85} />
+      </mesh>
+    </group>
+  );
+}
+
+function GlassCase({ position, accent }: { position: [number, number, number]; accent: string }) {
+  return (
+    <group position={position}>
+      {/* base */}
+      <mesh position={[0, 0.3, 0]} castShadow receiveShadow>
+        <boxGeometry args={[1.2, 0.6, 0.8]} />
+        <meshStandardMaterial color={WOOD_DARK} roughness={0.6} />
+      </mesh>
+      {/* glass */}
+      <mesh position={[0, 1.05, 0]}>
+        <boxGeometry args={[1.1, 1.1, 0.7]} />
+        <meshPhysicalMaterial
+          color="#eaf1ee"
+          transmission={0.85}
+          thickness={0.2}
+          roughness={0.05}
+          metalness={0}
+          transparent
+          opacity={0.4}
+        />
+      </mesh>
+      {/* tiny book inside */}
+      <mesh position={[0, 0.7, 0]} rotation={[0, 0.4, 0]} castShadow>
+        <boxGeometry args={[0.5, 0.1, 0.7]} />
+        <meshStandardMaterial color={accent} roughness={0.6} />
+      </mesh>
+    </group>
+  );
+}
+
+function Bookshelf({ position, rotationY = 0, width = 4.5 }: {
+  position: [number, number, number]; rotationY?: number; width?: number;
+}) {
+  const shelves = 5;
+  const h = 5.2;
+  const palette = ["#7b3d2a", "#a86b3c", "#3e5a4a", "#8b6a3a", "#6b3a55", "#c79a5b", "#5b6b8a"];
+  const books = useMemo(() => {
+    const arr: { x: number; y: number; w: number; c: string }[] = [];
+    for (let s = 0; s < shelves; s++) {
+      let x = -width / 2 + 0.2;
+      while (x < width / 2 - 0.2) {
+        const w = 0.14 + Math.random() * 0.12;
+        arr.push({
+          x: x + w / 2,
+          y: 0.6 + s * (h / shelves) + 0.18 + Math.random() * 0.05,
+          w,
+          c: palette[Math.floor(Math.random() * palette.length)],
+        });
+        x += w + 0.02;
+      }
+    }
+    return arr;
+  }, [width]);
+  return (
+    <group position={position} rotation={[0, rotationY, 0]}>
+      {/* frame */}
+      <mesh position={[0, h / 2, -0.2]} castShadow receiveShadow>
+        <boxGeometry args={[width, h, 0.4]} />
+        <meshStandardMaterial color={WOOD_DARK} roughness={0.7} />
+      </mesh>
+      {/* shelf planks */}
+      {Array.from({ length: shelves + 1 }).map((_, i) => (
+        <mesh key={i} position={[0, 0.4 + i * (h / shelves), 0]} castShadow>
+          <boxGeometry args={[width, 0.06, 0.45]} />
+          <meshStandardMaterial color={TRIM_COLOR} roughness={0.5} />
+        </mesh>
+      ))}
+      {books.map((b, i) => (
+        <mesh key={i} position={[b.x, b.y, 0.05]} castShadow>
+          <boxGeometry args={[b.w, 0.34, 0.22]} />
+          <meshStandardMaterial color={b.c} roughness={0.7} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+// ---------- Local cover loader with elegant placeholder ----------
+function CoverImg({ exhibit, className }: { exhibit: Exhibit; className?: string }) {
+  const [errored, setErrored] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const src = `/covers/${exhibit.id}.jpg`;
+  if (errored) {
+    return (
+      <div className={`lit-cover-fallback ${className ?? ""}`}>
+        <span className="lit-cover-fallback-mark">❦</span>
+        <span className="lit-cover-fallback-author">{exhibit.author}</span>
+        <span className="lit-cover-fallback-title">{exhibit.work}</span>
+        {exhibit.year && <span className="lit-cover-fallback-year">{exhibit.year}</span>}
+      </div>
+    );
+  }
+  return (
+    <>
+      {!loaded && <div className={`lit-cover-loading ${className ?? ""}`} aria-hidden />}
+      <img
+        src={src}
+        alt={exhibit.work}
+        draggable={false}
+        className={className}
+        loading="lazy"
+        onLoad={() => setLoaded(true)}
+        onError={() => setErrored(true)}
+        style={loaded ? undefined : { display: "none" }}
+      />
+    </>
+  );
+}
+
 // ---------- Exhibit ----------
 function ExhibitNode({
   exhibit,
