@@ -601,11 +601,10 @@ function RoomGeometry({ room }: { room: Room }) {
   const cz = Math.sin(room.angle) * ROOM_DIST;
   const rotY = -room.angle - Math.PI / 2;
   // Floor variants by room accent for personality
-  const floorColor = room.id === "bianca" ? "#ece1c4"
-    : room.id === "jose-david" ? "#e7e0c8"
-    : room.id === "luna" ? "#f0e2d6"
-    : "#e3dec6";
-  const quote = ROOM_QUOTES[room.id];
+  const floorColor = room.id === "bianca" ? "#c79a64"
+    : room.id === "jose-david" ? "#b88a52"
+    : room.id === "luna" ? "#cfa274"
+    : "#a8794a";
   return (
     <group position={[cx, 0, cz]} rotation={[0, rotY, 0]}>
       <WoodFloor
@@ -714,12 +713,12 @@ function Lobby() {
         );
       })}
 
-      {/* high ceiling with grand skylight */}
+      {/* closed coffered ceiling with recessed warm lamp */}
       <mesh rotation-x={Math.PI / 2} position={[0, WALL_H + 1, 0]}>
         <planeGeometry args={[LOBBY_SIZE, LOBBY_SIZE]} />
-        <meshStandardMaterial color="#f9f2e1" roughness={1} side={THREE.DoubleSide} />
+        <meshStandardMaterial color="#f1e6cb" roughness={1} side={THREE.DoubleSide} />
       </mesh>
-      <Skylight position={[0, WALL_H + 0.98, 0]} size={[10, 10]} />
+      <CeilingPanel position={[0, WALL_H + 0.98, 0]} size={[12, 12]} />
 
       {/* central floating books sculpture */}
       <FloatingBooksSculpture />
@@ -768,30 +767,72 @@ function Lobby() {
         <HangingLamp key={`lp${i}`} position={[p[0], WALL_H - 0.6, p[2]]} color="#ffe4b0" intensity={16} />
       ))}
 
-      {/* big floating museum title */}
-      <Html position={[0, 7.6, 0]} center distanceFactor={9}>
-        <div className="lit-museum-title">
-          <small>MUSEO LITERARIO</small>
-          <span>CANON LITERARIO ALTERNATIVO</span>
-        </div>
-      </Html>
-
-      {/* directory: pedestal map at front */}
+      {/* solid directory pedestal — no floating UI */}
       <mesh position={[0, 0.6, 9]} castShadow>
         <boxGeometry args={[3, 1.2, 0.6]} />
         <meshStandardMaterial color={PEDESTAL_COLOR} roughness={0.9} />
       </mesh>
-      <Html position={[0, 1.55, 9]} transform distanceFactor={3.2} rotation={[-0.4, 0, 0]}>
-        <div className="lit-directory">
-          <h4>DIRECTORIO</h4>
-          <ul>
-            {ROOMS.map((r) => (
-              <li key={r.id}>
-                <span style={{ background: r.accent }} />
-                {r.name}
-              </li>
-            ))}
-          </ul>
+      <mesh position={[0, 1.21, 9]}>
+        <boxGeometry args={[3.1, 0.04, 0.7]} />
+        <meshStandardMaterial color={WOOD_DARK} roughness={0.6} />
+      </mesh>
+    </group>
+  );
+}
+
+// ---------- Corridor connecting lobby to a room ----------
+function Corridor({ room }: { room: Room }) {
+  // The lobby outer wall is at LOBBY_SIZE/2 from origin along the room.angle direction.
+  // The room's front (door) wall sits at ROOM_DIST - ROOM_D/2.
+  const inner = LOBBY_SIZE / 2;
+  const outer = ROOM_DIST - ROOM_D / 2;
+  const len = outer - inner;
+  const mid = (inner + outer) / 2;
+  const cx = Math.cos(room.angle) * mid;
+  const cz = Math.sin(room.angle) * mid;
+  const rotY = -room.angle - Math.PI / 2; // local +z faces the room
+  const w = DOOR_W + 1.6; // corridor width
+  return (
+    <group position={[cx, 0, cz]} rotation={[0, rotY, 0]}>
+      {/* wood floor */}
+      <WoodFloor width={w} depth={len} light="#b88e5a" dark="#8c6536" />
+      {/* side walls */}
+      <mesh position={[-w / 2, WALL_H / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[WALL_T, WALL_H, len]} />
+        <meshStandardMaterial color={WALL_COLOR} roughness={0.95} />
+      </mesh>
+      <mesh position={[w / 2, WALL_H / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[WALL_T, WALL_H, len]} />
+        <meshStandardMaterial color={WALL_COLOR} roughness={0.95} />
+      </mesh>
+      {/* ceiling */}
+      <mesh rotation-x={Math.PI / 2} position={[0, WALL_H, 0]}>
+        <planeGeometry args={[w, len]} />
+        <meshStandardMaterial color="#f1e6cb" roughness={1} side={THREE.DoubleSide} />
+      </mesh>
+      {/* baseboard */}
+      {[-1, 1].map((s) => (
+        <mesh key={s} position={[s * (w / 2 - WALL_T / 2 - 0.02), 0.1, 0]}>
+          <boxGeometry args={[0.04, 0.2, len]} />
+          <meshStandardMaterial color={TRIM_COLOR} />
+        </mesh>
+      ))}
+      {/* hanging lamps */}
+      <HangingLamp position={[0, WALL_H - 1.2, -len / 4]} color="#ffd9a3" intensity={6} />
+      <HangingLamp position={[0, WALL_H - 1.2, len / 4]} color="#ffd9a3" intensity={6} />
+      {/* room name engraved on left wall */}
+      <Html
+        position={[-w / 2 + WALL_T / 2 + 0.01, WALL_H / 2 + 0.6, 0]}
+        transform
+        occlude={false}
+        rotation={[0, Math.PI / 2, 0]}
+        distanceFactor={3.2}
+        style={{ pointerEvents: "none" }}
+      >
+        <div className="lit-corridor-sign" style={{ color: room.accent }}>
+          <small>SALA</small>
+          <strong>{room.name.replace(/^Sala\s+/i, "")}</strong>
+          <span>{room.curator}</span>
         </div>
       </Html>
     </group>
@@ -814,25 +855,19 @@ function Scene({
 }) {
   return (
     <>
-      <color attach="background" args={["#f4ecdc"]} />
-      <fog attach="fog" args={["#f4ecdc", 40, 130]} />
-      <ambientLight intensity={0.65} />
-      <hemisphereLight args={["#fff4d8", "#d8c9a5", 0.9]} />
-      <directionalLight
-        position={[20, 25, 10]}
-        intensity={1.6}
-        color="#fff6e3"
-        castShadow
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
-      />
-      <Suspense fallback={null}>
-        <Sky sunPosition={[20, 25, 10]} turbidity={2} rayleigh={0.6} mieCoefficient={0.005} mieDirectionalG={0.7} />
-      </Suspense>
+      {/* Fully enclosed interior — no sky, dim warm ambient */}
+      <color attach="background" args={["#1a140c"]} />
+      <fog attach="fog" args={["#2a1f10", 18, 70]} />
+      <ambientLight intensity={0.28} color="#ffe6c0" />
+      <hemisphereLight args={["#ffd9a3", "#3a2a18", 0.35]} />
+      <Suspense fallback={null}>{null}</Suspense>
 
       <Lobby />
       {ROOMS.map((r) => (
         <RoomGeometry key={r.id} room={r} />
+      ))}
+      {ROOMS.map((r) => (
+        <Corridor key={`cor-${r.id}`} room={r} />
       ))}
 
       {/* Exhibits live in world space so proximity checks work consistently */}
