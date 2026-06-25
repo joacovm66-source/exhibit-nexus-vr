@@ -625,11 +625,27 @@ function RoomGeometry({ room }: { room: Room }) {
   const cx = Math.cos(room.angle) * ROOM_DIST;
   const cz = Math.sin(room.angle) * ROOM_DIST;
   const rotY = -room.angle - Math.PI / 2;
+  // Floor variants by room accent for personality
+  const floorColor = room.id === "bianca" ? "#ece1c4"
+    : room.id === "jose-david" ? "#e7e0c8"
+    : room.id === "luna" ? "#f0e2d6"
+    : "#e3dec6";
+  const quote = ROOM_QUOTES[room.id];
   return (
     <group position={[cx, 0, cz]} rotation={[0, rotY, 0]}>
       <mesh rotation-x={-Math.PI / 2} position={[0, 0.005, 0]} receiveShadow>
         <planeGeometry args={[ROOM_W, ROOM_D]} />
-        <meshStandardMaterial color="#efe6d2" roughness={0.95} />
+        <meshStandardMaterial color={floorColor} roughness={0.92} />
+      </mesh>
+      {/* central rug in accent color */}
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0.015, 1]} receiveShadow>
+        <planeGeometry args={[ROOM_W * 0.55, ROOM_D * 0.55]} />
+        <meshStandardMaterial color={room.accent} roughness={1} opacity={0.35} transparent />
+      </mesh>
+      {/* inlay border */}
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0.012, 0]}>
+        <ringGeometry args={[Math.min(ROOM_W, ROOM_D) * 0.32, Math.min(ROOM_W, ROOM_D) * 0.34, 48]} />
+        <meshStandardMaterial color={TRIM_COLOR} />
       </mesh>
       <Wall position={[0, WALL_H / 2, -ROOM_D / 2]} size={[ROOM_W, WALL_H, WALL_T]} />
       <Wall position={[-ROOM_W / 2, WALL_H / 2, 0]} size={[WALL_T, WALL_H, ROOM_D]} />
@@ -645,6 +661,34 @@ function RoomGeometry({ room }: { room: Room }) {
         <boxGeometry args={[ROOM_W, 0.2, 0.04]} />
         <meshStandardMaterial color={TRIM_COLOR} />
       </mesh>
+      {/* corner columns */}
+      {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz], i) => (
+        <Column key={i} position={[(sx as number) * (ROOM_W / 2 - 0.6), 0, (sz as number) * (ROOM_D / 2 - 0.6)]} />
+      ))}
+      {/* hanging lamps grid */}
+      {[[-3.5, -4], [3.5, -4], [0, 2], [-3.5, 6], [3.5, 6]].map(([x, z], i) => (
+        <HangingLamp key={i} position={[x, WALL_H - 1.4, z]} color={room.accent} intensity={10} />
+      ))}
+      {/* benches facing the back wall */}
+      <Bench position={[-4, 0, 4]} rotationY={Math.PI} />
+      <Bench position={[4, 0, 4]} rotationY={Math.PI} />
+      {/* glass case in the middle */}
+      <GlassCase position={[0, 0, -1.5]} accent={room.accent} />
+      {/* planters by the door */}
+      <Planter position={[-ROOM_W / 2 + 1.4, 0, ROOM_D / 2 - 1.6]} />
+      <Planter position={[ROOM_W / 2 - 1.4, 0, ROOM_D / 2 - 1.6]} />
+      {/* engraved quote on back wall */}
+      {quote && (
+        <Html
+          position={[0, WALL_H - 1.6, -ROOM_D / 2 + WALL_T + 0.02]}
+          transform
+          occlude={false}
+          distanceFactor={4.5}
+          style={{ pointerEvents: "none" }}
+        >
+          <div className="lit-quote" style={{ color: room.accent }}>{quote}</div>
+        </Html>
+      )}
     </group>
   );
 }
