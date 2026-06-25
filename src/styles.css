@@ -324,6 +324,101 @@ body {
   background: #ece3cf;
   border: 1px solid var(--lit-line);
 }
+.lit-frame-img { width: 100%; height: 240px; object-fit: cover; display: block; background: #ece3cf; border: 1px solid var(--lit-line); }
+
+/* Elegant cover fallback (no broken images) */
+.lit-cover-fallback {
+  width: 100%; height: 240px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center; gap: 6px;
+  padding: 18px 14px;
+  background: linear-gradient(160deg, #faf4e4 0%, #ece3cf 100%);
+  border: 1px solid var(--lit-line);
+  font-family: "Cormorant Garamond", "Georgia", serif;
+  color: var(--lit-ink);
+  position: relative;
+}
+.lit-cover-fallback::before,
+.lit-cover-fallback::after {
+  content: ""; position: absolute; left: 12px; right: 12px;
+  height: 1px; background: var(--lit-wood);
+}
+.lit-cover-fallback::before { top: 12px; }
+.lit-cover-fallback::after { bottom: 12px; }
+.lit-cover-fallback-mark { font-size: 26px; color: var(--lit-wood); }
+.lit-cover-fallback-author {
+  font-family: "Inter", sans-serif;
+  font-size: 10px; letter-spacing: 0.32em; text-transform: uppercase;
+  color: var(--lit-ink-soft);
+}
+.lit-cover-fallback-title {
+  font-style: italic; font-size: 18px; line-height: 1.25;
+  max-width: 90%;
+}
+.lit-cover-fallback-year {
+  font-family: "Inter", sans-serif; font-size: 10px;
+  letter-spacing: 0.3em; color: var(--lit-ink-soft);
+}
+.lit-cover-loading {
+  width: 100%; height: 240px;
+  background: linear-gradient(90deg, #ece3cf 0%, #f4ecdc 50%, #ece3cf 100%);
+  background-size: 200% 100%;
+  animation: lit-shimmer 1.4s ease-in-out infinite;
+  border: 1px solid var(--lit-line);
+}
+@keyframes lit-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* In-scene side plaque next to each exhibit */
+.lit-plaque {
+  width: 200px;
+  background: #faf4e4;
+  border: 1px solid var(--lit-line);
+  border-left: 4px solid var(--lit-wood);
+  padding: 12px 14px;
+  box-shadow: 0 6px 16px rgba(40, 30, 10, 0.18);
+  font-family: "Cormorant Garamond", "Georgia", serif;
+  color: var(--lit-ink);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.lit-plaque small {
+  font-family: "Inter", sans-serif;
+  font-size: 9px; letter-spacing: 0.32em; text-transform: uppercase;
+  color: var(--lit-ink-soft);
+}
+.lit-plaque strong { font-size: 18px; font-weight: 500; letter-spacing: 0.01em; }
+.lit-plaque em { font-size: 14px; color: var(--lit-ink-soft); }
+.lit-plaque span {
+  font-family: "Inter", sans-serif; font-size: 10px;
+  letter-spacing: 0.3em; color: var(--lit-ink-soft);
+}
+
+/* Engraved-style quote on back wall */
+.lit-quote {
+  font-family: "Cormorant Garamond", "Georgia", serif;
+  font-style: italic;
+  font-size: 38px;
+  letter-spacing: 0.04em;
+  text-align: center;
+  white-space: nowrap;
+  opacity: 0.7;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.4), 0 -1px 0 rgba(0,0,0,0.08);
+  user-select: none;
+}
+
+.lit-panel-cover-img {
+  width: 100%; aspect-ratio: 2/3; object-fit: cover;
+  background: #ece3cf;
+  border: 1px solid var(--lit-line);
+  box-shadow: 0 10px 28px rgba(40,30,10,0.18);
+}
+.lit-panel-cover .lit-cover-fallback {
+  height: auto; aspect-ratio: 2/3;
+  box-shadow: 0 10px 28px rgba(40,30,10,0.18);
+}
 .lit-frame-author {
   font-size: 11px; letter-spacing: 0.32em; text-transform: uppercase;
   font-family: "Inter", sans-serif;

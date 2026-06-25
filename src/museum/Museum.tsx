@@ -8,9 +8,9 @@ import { ROOMS, type Exhibit, type Room } from "./types";
 const LOBBY_SIZE = 26;
 const WALL_H = 7;
 const WALL_T = 0.4;
-const ROOM_DIST = 34; // center distance from lobby center to room center
-const ROOM_W = 18;
-const ROOM_D = 26;
+const ROOM_DIST = 28; // tighter corridors, less empty space
+const ROOM_W = 17;
+const ROOM_D = 22;
 const DOOR_W = 5;
 
 // Materials reused across the museum
@@ -18,6 +18,16 @@ const FLOOR_COLOR = "#e7dcc6"; // travertine / sandstone
 const WALL_COLOR = "#f4ecdc"; // ivory
 const TRIM_COLOR = "#c9b58a"; // light wood
 const PEDESTAL_COLOR = "#ece3cf";
+const MARBLE_COLOR = "#f1e8d2";
+const WOOD_DARK = "#8c6a3f";
+
+// Curated quote engraved on the back wall of each room
+const ROOM_QUOTES: Record<string, string> = {
+  bianca: "“Escribo para que mi voz no se pierda en el viento.”",
+  "jose-david": "“La ciudad también es un poema escrito por los que caminan.”",
+  luna: "“Las mujeres que cuentan, fundan mundos.”",
+  joaquin: "“El bosque guarda libros que nadie ha abierto todavía.”",
+};
 
 // ---------- Proximity / interaction ----------
 type NearTarget = { exhibitId: string; roomId: string };
@@ -213,6 +223,197 @@ function FloatingBooksSculpture() {
   );
 }
 
+// ---------- Architectural elements ----------
+function Column({ position, height = WALL_H, radius = 0.32, color = MARBLE_COLOR }: {
+  position: [number, number, number]; height?: number; radius?: number; color?: string;
+}) {
+  return (
+    <group position={position}>
+      {/* base */}
+      <mesh position={[0, 0.12, 0]} castShadow receiveShadow>
+        <boxGeometry args={[radius * 2.6, 0.24, radius * 2.6]} />
+        <meshStandardMaterial color={TRIM_COLOR} roughness={0.6} />
+      </mesh>
+      {/* shaft */}
+      <mesh position={[0, height / 2 + 0.1, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[radius, radius * 1.05, height - 0.4, 24]} />
+        <meshStandardMaterial color={color} roughness={0.4} metalness={0.05} />
+      </mesh>
+      {/* capital */}
+      <mesh position={[0, height - 0.05, 0]} castShadow>
+        <boxGeometry args={[radius * 2.6, 0.22, radius * 2.6]} />
+        <meshStandardMaterial color={TRIM_COLOR} roughness={0.6} />
+      </mesh>
+    </group>
+  );
+}
+
+function Bench({ position, rotationY = 0 }: { position: [number, number, number]; rotationY?: number }) {
+  return (
+    <group position={position} rotation={[0, rotationY, 0]}>
+      <mesh position={[0, 0.45, 0]} castShadow receiveShadow>
+        <boxGeometry args={[2.4, 0.18, 0.7]} />
+        <meshStandardMaterial color={WOOD_DARK} roughness={0.55} />
+      </mesh>
+      {[-1, 1].map((s) => (
+        <mesh key={s} position={[s * 1.0, 0.22, 0]} castShadow>
+          <boxGeometry args={[0.18, 0.5, 0.7]} />
+          <meshStandardMaterial color={TRIM_COLOR} roughness={0.6} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function HangingLamp({ position, color = "#ffe6b5", intensity = 14 }: {
+  position: [number, number, number]; color?: string; intensity?: number;
+}) {
+  return (
+    <group position={position}>
+      {/* cord */}
+      <mesh position={[0, 0.8, 0]}>
+        <cylinderGeometry args={[0.015, 0.015, 1.6, 6]} />
+        <meshStandardMaterial color="#3a3022" />
+      </mesh>
+      {/* shade */}
+      <mesh position={[0, 0, 0]} castShadow>
+        <coneGeometry args={[0.32, 0.45, 18, 1, true]} />
+        <meshStandardMaterial color="#f7e8c2" emissive={color} emissiveIntensity={0.45} roughness={0.4} side={THREE.DoubleSide} />
+      </mesh>
+      <pointLight position={[0, -0.3, 0]} intensity={intensity} distance={9} color={color} decay={1.8} />
+    </group>
+  );
+}
+
+function Planter({ position }: { position: [number, number, number] }) {
+  return (
+    <group position={position}>
+      <mesh position={[0, 0.3, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.42, 0.36, 0.6, 18]} />
+        <meshStandardMaterial color="#e3d3a8" roughness={0.85} />
+      </mesh>
+      {/* foliage */}
+      <mesh position={[0, 0.95, 0]} castShadow>
+        <sphereGeometry args={[0.55, 16, 12]} />
+        <meshStandardMaterial color="#6f8a5c" roughness={0.85} />
+      </mesh>
+      <mesh position={[0.25, 1.1, 0.1]} castShadow>
+        <sphereGeometry args={[0.32, 12, 10]} />
+        <meshStandardMaterial color="#7e9a66" roughness={0.85} />
+      </mesh>
+    </group>
+  );
+}
+
+function GlassCase({ position, accent }: { position: [number, number, number]; accent: string }) {
+  return (
+    <group position={position}>
+      {/* base */}
+      <mesh position={[0, 0.3, 0]} castShadow receiveShadow>
+        <boxGeometry args={[1.2, 0.6, 0.8]} />
+        <meshStandardMaterial color={WOOD_DARK} roughness={0.6} />
+      </mesh>
+      {/* glass */}
+      <mesh position={[0, 1.05, 0]}>
+        <boxGeometry args={[1.1, 1.1, 0.7]} />
+        <meshPhysicalMaterial
+          color="#eaf1ee"
+          transmission={0.85}
+          thickness={0.2}
+          roughness={0.05}
+          metalness={0}
+          transparent
+          opacity={0.4}
+        />
+      </mesh>
+      {/* tiny book inside */}
+      <mesh position={[0, 0.7, 0]} rotation={[0, 0.4, 0]} castShadow>
+        <boxGeometry args={[0.5, 0.1, 0.7]} />
+        <meshStandardMaterial color={accent} roughness={0.6} />
+      </mesh>
+    </group>
+  );
+}
+
+function Bookshelf({ position, rotationY = 0, width = 4.5 }: {
+  position: [number, number, number]; rotationY?: number; width?: number;
+}) {
+  const shelves = 5;
+  const h = 5.2;
+  const palette = ["#7b3d2a", "#a86b3c", "#3e5a4a", "#8b6a3a", "#6b3a55", "#c79a5b", "#5b6b8a"];
+  const books = useMemo(() => {
+    const arr: { x: number; y: number; w: number; c: string }[] = [];
+    for (let s = 0; s < shelves; s++) {
+      let x = -width / 2 + 0.2;
+      while (x < width / 2 - 0.2) {
+        const w = 0.14 + Math.random() * 0.12;
+        arr.push({
+          x: x + w / 2,
+          y: 0.6 + s * (h / shelves) + 0.18 + Math.random() * 0.05,
+          w,
+          c: palette[Math.floor(Math.random() * palette.length)],
+        });
+        x += w + 0.02;
+      }
+    }
+    return arr;
+  }, [width]);
+  return (
+    <group position={position} rotation={[0, rotationY, 0]}>
+      {/* frame */}
+      <mesh position={[0, h / 2, -0.2]} castShadow receiveShadow>
+        <boxGeometry args={[width, h, 0.4]} />
+        <meshStandardMaterial color={WOOD_DARK} roughness={0.7} />
+      </mesh>
+      {/* shelf planks */}
+      {Array.from({ length: shelves + 1 }).map((_, i) => (
+        <mesh key={i} position={[0, 0.4 + i * (h / shelves), 0]} castShadow>
+          <boxGeometry args={[width, 0.06, 0.45]} />
+          <meshStandardMaterial color={TRIM_COLOR} roughness={0.5} />
+        </mesh>
+      ))}
+      {books.map((b, i) => (
+        <mesh key={i} position={[b.x, b.y, 0.05]} castShadow>
+          <boxGeometry args={[b.w, 0.34, 0.22]} />
+          <meshStandardMaterial color={b.c} roughness={0.7} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+// ---------- Local cover loader with elegant placeholder ----------
+function CoverImg({ exhibit, className }: { exhibit: Exhibit; className?: string }) {
+  const [errored, setErrored] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const src = `/covers/${exhibit.id}.jpg`;
+  if (errored) {
+    return (
+      <div className={`lit-cover-fallback ${className ?? ""}`}>
+        <span className="lit-cover-fallback-mark">❦</span>
+        <span className="lit-cover-fallback-author">{exhibit.author}</span>
+        <span className="lit-cover-fallback-title">{exhibit.work}</span>
+        {exhibit.year && <span className="lit-cover-fallback-year">{exhibit.year}</span>}
+      </div>
+    );
+  }
+  return (
+    <>
+      {!loaded && <div className={`lit-cover-loading ${className ?? ""}`} aria-hidden />}
+      <img
+        src={src}
+        alt={exhibit.work}
+        draggable={false}
+        className={className}
+        loading="lazy"
+        onLoad={() => setLoaded(true)}
+        onError={() => setErrored(true)}
+        style={loaded ? undefined : { display: "none" }}
+      />
+    </>
+  );
+}
+
 // ---------- Exhibit ----------
 function ExhibitNode({
   exhibit,
@@ -247,6 +448,16 @@ function ExhibitNode({
 
   return (
     <group position={worldPosition} rotation={[0, facingY, 0]}>
+      {/* directed spotlight on this exhibit */}
+      <spotLight
+        position={[0, 4.6, 1.2]}
+        angle={0.5}
+        penumbra={0.55}
+        intensity={18}
+        distance={9}
+        color="#fff2cf"
+        castShadow={false}
+      />
       {/* pedestal */}
       <mesh position={[0, 0.55, 0]} castShadow receiveShadow>
         <boxGeometry args={[1.6, 1.1, 1.2]} />
@@ -257,6 +468,13 @@ function ExhibitNode({
         <boxGeometry args={[1.62, 0.04, 1.22]} />
         <meshStandardMaterial color={accent} roughness={0.5} />
       </mesh>
+      {/* small velvet rope posts */}
+      {[-1, 1].map((s) => (
+        <mesh key={s} position={[s * 1.3, 0.45, 0.9]} castShadow>
+          <cylinderGeometry args={[0.04, 0.04, 0.9, 10]} />
+          <meshStandardMaterial color={accent} metalness={0.3} roughness={0.4} />
+        </mesh>
+      ))}
       {/* book object on top */}
       <mesh position={[0, 1.27, 0]} rotation={[-0.15, 0, 0]} castShadow>
         <boxGeometry args={[0.9, 0.18, 1.2]} />
@@ -272,8 +490,25 @@ function ExhibitNode({
       >
         <div className="lit-frame">
           <div className="lit-frame-author">{exhibit.author}</div>
-          <img src={exhibit.cover} alt={exhibit.work} draggable={false} />
+          <CoverImg exhibit={exhibit} className="lit-frame-img" />
           <div className="lit-frame-title">{exhibit.work}</div>
+        </div>
+      </Html>
+
+      {/* side info plaque */}
+      <Html
+        position={[1.55, 1.1, 0]}
+        transform
+        occlude={false}
+        distanceFactor={2.2}
+        rotation={[0, -0.35, 0]}
+        style={{ pointerEvents: "none" }}
+      >
+        <div className="lit-plaque" style={{ borderLeftColor: accent }}>
+          <small>{exhibit.nationality ?? "Latinoamérica"}</small>
+          <strong>{exhibit.author}</strong>
+          <em>{exhibit.work}</em>
+          {exhibit.year && <span>{exhibit.year}</span>}
         </div>
       </Html>
 
@@ -288,7 +523,7 @@ function ExhibitNode({
             }}
           >
             <span className="lit-hint-key">E</span>
-            Presiona <b>E</b> para explorar
+            Presiona para explorar
           </button>
         </Html>
       )}
@@ -390,11 +625,27 @@ function RoomGeometry({ room }: { room: Room }) {
   const cx = Math.cos(room.angle) * ROOM_DIST;
   const cz = Math.sin(room.angle) * ROOM_DIST;
   const rotY = -room.angle - Math.PI / 2;
+  // Floor variants by room accent for personality
+  const floorColor = room.id === "bianca" ? "#ece1c4"
+    : room.id === "jose-david" ? "#e7e0c8"
+    : room.id === "luna" ? "#f0e2d6"
+    : "#e3dec6";
+  const quote = ROOM_QUOTES[room.id];
   return (
     <group position={[cx, 0, cz]} rotation={[0, rotY, 0]}>
       <mesh rotation-x={-Math.PI / 2} position={[0, 0.005, 0]} receiveShadow>
         <planeGeometry args={[ROOM_W, ROOM_D]} />
-        <meshStandardMaterial color="#efe6d2" roughness={0.95} />
+        <meshStandardMaterial color={floorColor} roughness={0.92} />
+      </mesh>
+      {/* central rug in accent color */}
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0.015, 1]} receiveShadow>
+        <planeGeometry args={[ROOM_W * 0.55, ROOM_D * 0.55]} />
+        <meshStandardMaterial color={room.accent} roughness={1} opacity={0.35} transparent />
+      </mesh>
+      {/* inlay border */}
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0.012, 0]}>
+        <ringGeometry args={[Math.min(ROOM_W, ROOM_D) * 0.32, Math.min(ROOM_W, ROOM_D) * 0.34, 48]} />
+        <meshStandardMaterial color={TRIM_COLOR} />
       </mesh>
       <Wall position={[0, WALL_H / 2, -ROOM_D / 2]} size={[ROOM_W, WALL_H, WALL_T]} />
       <Wall position={[-ROOM_W / 2, WALL_H / 2, 0]} size={[WALL_T, WALL_H, ROOM_D]} />
@@ -410,6 +661,34 @@ function RoomGeometry({ room }: { room: Room }) {
         <boxGeometry args={[ROOM_W, 0.2, 0.04]} />
         <meshStandardMaterial color={TRIM_COLOR} />
       </mesh>
+      {/* corner columns */}
+      {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz], i) => (
+        <Column key={i} position={[(sx as number) * (ROOM_W / 2 - 0.6), 0, (sz as number) * (ROOM_D / 2 - 0.6)]} />
+      ))}
+      {/* hanging lamps grid */}
+      {[[-3.5, -4], [3.5, -4], [0, 2], [-3.5, 6], [3.5, 6]].map(([x, z], i) => (
+        <HangingLamp key={i} position={[x, WALL_H - 1.4, z]} color={room.accent} intensity={10} />
+      ))}
+      {/* benches facing the back wall */}
+      <Bench position={[-4, 0, 4]} rotationY={Math.PI} />
+      <Bench position={[4, 0, 4]} rotationY={Math.PI} />
+      {/* glass case in the middle */}
+      <GlassCase position={[0, 0, -1.5]} accent={room.accent} />
+      {/* planters by the door */}
+      <Planter position={[-ROOM_W / 2 + 1.4, 0, ROOM_D / 2 - 1.6]} />
+      <Planter position={[ROOM_W / 2 - 1.4, 0, ROOM_D / 2 - 1.6]} />
+      {/* engraved quote on back wall */}
+      {quote && (
+        <Html
+          position={[0, WALL_H - 1.6, -ROOM_D / 2 + WALL_T + 0.02]}
+          transform
+          occlude={false}
+          distanceFactor={4.5}
+          style={{ pointerEvents: "none" }}
+        >
+          <div className="lit-quote" style={{ color: room.accent }}>{quote}</div>
+        </Html>
+      )}
     </group>
   );
 }
@@ -426,12 +705,19 @@ function Lobby() {
       {/* central marble inlay */}
       <mesh rotation-x={-Math.PI / 2} position={[0, 0.01, 0]}>
         <circleGeometry args={[7, 64]} />
-        <meshStandardMaterial color="#f1e8d2" roughness={0.7} metalness={0.05} />
+        <meshStandardMaterial color={MARBLE_COLOR} roughness={0.5} metalness={0.08} />
       </mesh>
       <mesh rotation-x={-Math.PI / 2} position={[0, 0.02, 0]}>
         <ringGeometry args={[6.8, 7, 64]} />
         <meshStandardMaterial color={TRIM_COLOR} />
       </mesh>
+      {/* compass star inlay */}
+      {[0, Math.PI / 4, Math.PI / 2, (3 * Math.PI) / 4].map((a, i) => (
+        <mesh key={i} rotation={[-Math.PI / 2, 0, a]} position={[0, 0.015, 0]}>
+          <planeGeometry args={[13.2, 0.06]} />
+          <meshStandardMaterial color={TRIM_COLOR} opacity={0.55} transparent />
+        </mesh>
+      ))}
 
       {/* lobby outer walls (one per side) with door openings */}
       {[0, Math.PI / 2, Math.PI, -Math.PI / 2].map((a, i) => {
@@ -459,8 +745,52 @@ function Lobby() {
       {/* central floating books sculpture */}
       <FloatingBooksSculpture />
 
+      {/* eight columns surrounding the rotunda */}
+      {Array.from({ length: 8 }).map((_, i) => {
+        const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
+        const r = 9;
+        return (
+          <Column
+            key={`col${i}`}
+            position={[Math.cos(a) * r, 0, Math.sin(a) * r]}
+            height={WALL_H + 1}
+            radius={0.38}
+          />
+        );
+      })}
+
+      {/* tall library shelves in lobby corners */}
+      {[
+        { p: [-LOBBY_SIZE / 2 + 0.6, 0, -LOBBY_SIZE / 2 + 3], r: Math.PI / 2 },
+        { p: [LOBBY_SIZE / 2 - 0.6, 0, -LOBBY_SIZE / 2 + 3], r: -Math.PI / 2 },
+        { p: [-LOBBY_SIZE / 2 + 0.6, 0, LOBBY_SIZE / 2 - 3], r: Math.PI / 2 },
+        { p: [LOBBY_SIZE / 2 - 0.6, 0, LOBBY_SIZE / 2 - 3], r: -Math.PI / 2 },
+      ].map((s, i) => (
+        <Bookshelf key={`bs${i}`} position={s.p as [number, number, number]} rotationY={s.r} width={5} />
+      ))}
+
+      {/* reading area: benches & planters in the four diagonals */}
+      {[
+        [-9, -9],
+        [9, -9],
+        [-9, 9],
+        [9, 9],
+      ].map(([x, z], i) => (
+        <group key={`rd${i}`} position={[x, 0, z]}>
+          <Bench position={[0, 0, 0]} rotationY={Math.atan2(-z, -x) + Math.PI / 2} />
+          <Planter position={[1.6, 0, 0]} />
+        </group>
+      ))}
+
+      {/* hanging lamps over the rotunda */}
+      {[
+        [-4, 0, -4], [4, 0, -4], [-4, 0, 4], [4, 0, 4],
+      ].map((p, i) => (
+        <HangingLamp key={`lp${i}`} position={[p[0], WALL_H - 0.6, p[2]]} color="#ffe4b0" intensity={16} />
+      ))}
+
       {/* big floating museum title */}
-      <Html position={[0, 6.2, 0]} center distanceFactor={8}>
+      <Html position={[0, 7.6, 0]} center distanceFactor={9}>
         <div className="lit-museum-title">
           <small>MUSEO LITERARIO</small>
           <span>CANON LITERARIO ALTERNATIVO</span>
@@ -591,6 +921,9 @@ export function MuseumApp() {
           break;
         }
       }
+    } else if (active) {
+      // Auto-close panel when player walks away
+      setActive(null);
     }
   }, [near]);
 
@@ -768,7 +1101,7 @@ function ExhibitPanel({ data, onClose }: { data: { exhibit: Exhibit; room: Room 
         </header>
         <div className="lit-panel-body">
           <figure className="lit-panel-cover">
-            <img src={exhibit.cover} alt={exhibit.work} />
+            <CoverImg exhibit={exhibit} className="lit-panel-cover-img" />
             <figcaption>
               <em>{exhibit.work}</em>
               {exhibit.year && <span> · {exhibit.year}</span>}
