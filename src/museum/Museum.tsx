@@ -8,9 +8,9 @@ import { ROOMS, type Exhibit, type Room } from "./types";
 const LOBBY_SIZE = 26;
 const WALL_H = 7;
 const WALL_T = 0.4;
-const ROOM_DIST = 34; // center distance from lobby center to room center
-const ROOM_W = 18;
-const ROOM_D = 26;
+const ROOM_DIST = 28; // tighter corridors, less empty space
+const ROOM_W = 17;
+const ROOM_D = 22;
 const DOOR_W = 5;
 
 // Materials reused across the museum
@@ -18,6 +18,16 @@ const FLOOR_COLOR = "#e7dcc6"; // travertine / sandstone
 const WALL_COLOR = "#f4ecdc"; // ivory
 const TRIM_COLOR = "#c9b58a"; // light wood
 const PEDESTAL_COLOR = "#ece3cf";
+const MARBLE_COLOR = "#f1e8d2";
+const WOOD_DARK = "#8c6a3f";
+
+// Curated quote engraved on the back wall of each room
+const ROOM_QUOTES: Record<string, string> = {
+  bianca: "“Escribo para que mi voz no se pierda en el viento.”",
+  "jose-david": "“La ciudad también es un poema escrito por los que caminan.”",
+  luna: "“Las mujeres que cuentan, fundan mundos.”",
+  joaquin: "“El bosque guarda libros que nadie ha abierto todavía.”",
+};
 
 // ---------- Proximity / interaction ----------
 type NearTarget = { exhibitId: string; roomId: string };
