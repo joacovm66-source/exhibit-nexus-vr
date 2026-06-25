@@ -503,11 +503,11 @@ function ExhibitNode({
       {/* directed spotlight on this exhibit */}
       <spotLight
         position={[0, 4.6, 1.2]}
-        angle={0.5}
-        penumbra={0.55}
-        intensity={18}
-        distance={9}
-        color="#fff2cf"
+        angle={0.55}
+        penumbra={0.7}
+        intensity={8}
+        distance={8}
+        color="#ffd9a3"
         castShadow={false}
       />
       {/* pedestal */}
@@ -641,9 +641,9 @@ function RoomGeometry({ room }: { room: Room }) {
       {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz], i) => (
         <Column key={i} position={[(sx as number) * (ROOM_W / 2 - 0.6), 0, (sz as number) * (ROOM_D / 2 - 0.6)]} />
       ))}
-      {/* hanging lamps grid */}
+      {/* hanging lamps grid (warm, dim) */}
       {[[-3.5, -4], [3.5, -4], [0, 2], [-3.5, 6], [3.5, 6]].map(([x, z], i) => (
-        <HangingLamp key={i} position={[x, WALL_H - 1.4, z]} color={room.accent} intensity={10} />
+        <HangingLamp key={i} position={[x, WALL_H - 1.4, z]} color="#ffd9a3" intensity={5} />
       ))}
       {/* benches facing the back wall */}
       <Bench position={[-4, 0, 4]} rotationY={Math.PI} />
@@ -764,7 +764,7 @@ function Lobby() {
       {[
         [-4, 0, -4], [4, 0, -4], [-4, 0, 4], [4, 0, 4],
       ].map((p, i) => (
-        <HangingLamp key={`lp${i}`} position={[p[0], WALL_H - 0.6, p[2]]} color="#ffe4b0" intensity={16} />
+        <HangingLamp key={`lp${i}`} position={[p[0], WALL_H - 0.6, p[2]]} color="#ffd9a3" intensity={7} />
       ))}
 
       {/* solid directory pedestal — no floating UI */}
