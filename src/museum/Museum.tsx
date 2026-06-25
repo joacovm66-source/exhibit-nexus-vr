@@ -1,5 +1,5 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { PointerLockControls, Html, Sky } from "@react-three/drei";
+import { PointerLockControls, Html } from "@react-three/drei";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { ROOMS, type Exhibit, type Room } from "./types";
@@ -14,20 +14,14 @@ const ROOM_D = 22;
 const DOOR_W = 5;
 
 // Materials reused across the museum
-const FLOOR_COLOR = "#e7dcc6"; // travertine / sandstone
+const FLOOR_COLOR = "#b88e5a"; // warm wood parquet (lobby)
+const WOOD_PLANK_LIGHT = "#caa074";
+const WOOD_PLANK_DARK = "#8c6536";
 const WALL_COLOR = "#f4ecdc"; // ivory
 const TRIM_COLOR = "#c9b58a"; // light wood
 const PEDESTAL_COLOR = "#ece3cf";
 const MARBLE_COLOR = "#f1e8d2";
 const WOOD_DARK = "#8c6a3f";
-
-// Curated quote engraved on the back wall of each room
-const ROOM_QUOTES: Record<string, string> = {
-  bianca: "“Escribo para que mi voz no se pierda en el viento.”",
-  "jose-david": "“La ciudad también es un poema escrito por los que caminan.”",
-  luna: "“Las mujeres que cuentan, fundan mundos.”",
-  joaquin: "“El bosque guarda libros que nadie ha abierto todavía.”",
-};
 
 // ---------- Proximity / interaction ----------
 type NearTarget = { exhibitId: string; roomId: string };
