@@ -1,5 +1,5 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { PointerLockControls, Html, Sky } from "@react-three/drei";
+import { PointerLockControls, Html } from "@react-three/drei";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { ROOMS, type Exhibit, type Room } from "./types";
@@ -14,20 +14,14 @@ const ROOM_D = 22;
 const DOOR_W = 5;
 
 // Materials reused across the museum
-const FLOOR_COLOR = "#e7dcc6"; // travertine / sandstone
+const FLOOR_COLOR = "#b88e5a"; // warm wood parquet (lobby)
+const WOOD_PLANK_LIGHT = "#caa074";
+const WOOD_PLANK_DARK = "#8c6536";
 const WALL_COLOR = "#f4ecdc"; // ivory
 const TRIM_COLOR = "#c9b58a"; // light wood
 const PEDESTAL_COLOR = "#ece3cf";
 const MARBLE_COLOR = "#f1e8d2";
 const WOOD_DARK = "#8c6a3f";
-
-// Curated quote engraved on the back wall of each room
-const ROOM_QUOTES: Record<string, string> = {
-  bianca: "“Escribo para que mi voz no se pierda en el viento.”",
-  "jose-david": "“La ciudad también es un poema escrito por los que caminan.”",
-  luna: "“Las mujeres que cuentan, fundan mundos.”",
-  joaquin: "“El bosque guarda libros que nadie ha abierto todavía.”",
-};
 
 // ---------- Proximity / interaction ----------
 type NearTarget = { exhibitId: string; roomId: string };
@@ -157,35 +151,93 @@ function WallWithDoor({
   );
 }
 
-function Skylight({ position, size }: { position: [number, number, number]; size: [number, number] }) {
-  // Glass roof patch + a bright directional fill below
+function CeilingPanel({
+  position,
+  size,
+}: {
+  position: [number, number, number];
+  size: [number, number];
+}) {
+  // Decorative coffered ceiling panel with a warm recessed lamp.
   return (
     <group position={position}>
       <mesh rotation-x={Math.PI / 2}>
         <planeGeometry args={size} />
+        <meshStandardMaterial color="#f1e6cb" roughness={1} />
+      </mesh>
+      {/* trim border */}
+      {[-1, 1].map((s) => (
+        <mesh key={"x" + s} position={[(size[0] / 2) * s, -0.04, 0]}>
+          <boxGeometry args={[0.08, 0.08, size[1]]} />
+          <meshStandardMaterial color={TRIM_COLOR} />
+        </mesh>
+      ))}
+      {[-1, 1].map((s) => (
+        <mesh key={"z" + s} position={[0, -0.04, (size[1] / 2) * s]}>
+          <boxGeometry args={[size[0], 0.08, 0.08]} />
+          <meshStandardMaterial color={TRIM_COLOR} />
+        </mesh>
+      ))}
+      {/* recessed warm light disc */}
+      <mesh rotation-x={Math.PI / 2} position={[0, -0.06, 0]}>
+        <circleGeometry args={[Math.min(size[0], size[1]) * 0.18, 24]} />
         <meshStandardMaterial
-          color="#f8f1e1"
-          emissive="#fff6e3"
-          emissiveIntensity={0.6}
-          transparent
-          opacity={0.9}
-          roughness={0.2}
+          color="#fff1cf"
+          emissive="#ffd99a"
+          emissiveIntensity={0.7}
+          roughness={0.5}
         />
       </mesh>
-      {/* grid mullions */}
-      {[-1, 0, 1].map((i) => (
-        <mesh key={"a" + i} position={[(size[0] / 4) * i, -0.05, 0]}>
-          <boxGeometry args={[0.08, 0.1, size[1]]} />
-          <meshStandardMaterial color={TRIM_COLOR} />
-        </mesh>
-      ))}
-      {[-1, 0, 1].map((i) => (
-        <mesh key={"b" + i} position={[0, -0.05, (size[1] / 4) * i]}>
-          <boxGeometry args={[size[0], 0.1, 0.08]} />
-          <meshStandardMaterial color={TRIM_COLOR} />
-        </mesh>
-      ))}
-      <pointLight position={[0, -2, 0]} intensity={45} distance={28} color="#fff4d8" decay={1.6} />
+      <pointLight
+        position={[0, -1.8, 0]}
+        intensity={9}
+        distance={14}
+        color="#ffd9a3"
+        decay={1.8}
+      />
+    </group>
+  );
+}
+
+// Wood parquet floor (alternating plank tones)
+function WoodFloor({
+  width,
+  depth,
+  light = WOOD_PLANK_LIGHT,
+  dark = WOOD_PLANK_DARK,
+  z = 0,
+  x = 0,
+}: {
+  width: number;
+  depth: number;
+  light?: string;
+  dark?: string;
+  x?: number;
+  z?: number;
+}) {
+  const planks = Math.max(6, Math.floor(width / 0.9));
+  const pw = width / planks;
+  return (
+    <group position={[x, 0.005, z]}>
+      <mesh rotation-x={-Math.PI / 2} receiveShadow>
+        <planeGeometry args={[width, depth]} />
+        <meshStandardMaterial color={dark} roughness={0.85} />
+      </mesh>
+      {Array.from({ length: planks }).map((_, i) => {
+        const px = -width / 2 + pw / 2 + i * pw;
+        const c = i % 2 === 0 ? light : dark;
+        return (
+          <mesh
+            key={i}
+            rotation-x={-Math.PI / 2}
+            position={[px, 0.002, 0]}
+            receiveShadow
+          >
+            <planeGeometry args={[pw * 0.96, depth * 0.998]} />
+            <meshStandardMaterial color={c} roughness={0.78} />
+          </mesh>
+        );
+      })}
     </group>
   );
 }
@@ -451,11 +503,11 @@ function ExhibitNode({
       {/* directed spotlight on this exhibit */}
       <spotLight
         position={[0, 4.6, 1.2]}
-        angle={0.5}
-        penumbra={0.55}
-        intensity={18}
-        distance={9}
-        color="#fff2cf"
+        angle={0.55}
+        penumbra={0.7}
+        intensity={8}
+        distance={8}
+        color="#ffd9a3"
         castShadow={false}
       />
       {/* pedestal */}
@@ -480,35 +532,42 @@ function ExhibitNode({
         <boxGeometry args={[0.9, 0.18, 1.2]} />
         <meshStandardMaterial color={accent} roughness={0.6} />
       </mesh>
-      {/* framed cover hovering on wall behind */}
-      <Html
-        position={[0, 2.5, -0.85]}
-        transform
-        occlude={false}
-        distanceFactor={2.6}
-        style={{ pointerEvents: "none" }}
-      >
-        <div className="lit-frame">
-          <div className="lit-frame-author">{exhibit.author}</div>
-          <CoverImg exhibit={exhibit} className="lit-frame-img" />
-          <div className="lit-frame-title">{exhibit.work}</div>
-        </div>
-      </Html>
+      {/* Framed cover mounted on the wall behind the pedestal — physical 3D plane (no overlapping HTML) */}
+      <group position={[0, 3, -1.05]}>
+        <mesh castShadow>
+          <boxGeometry args={[1.65, 2.25, 0.08]} />
+          <meshStandardMaterial color={WOOD_DARK} roughness={0.6} />
+        </mesh>
+        <mesh position={[0, 0, 0.045]}>
+          <planeGeometry args={[1.4, 2.0]} />
+          <meshStandardMaterial color="#faf2dc" roughness={0.9} />
+        </mesh>
+        <Html
+          position={[0, 0, 0.06]}
+          transform
+          occlude={false}
+          distanceFactor={2.4}
+          style={{ pointerEvents: "none", width: 220 }}
+        >
+          <div className="lit-wall-frame">
+            <CoverImg exhibit={exhibit} className="lit-wall-cover" />
+          </div>
+        </Html>
+      </group>
 
-      {/* side info plaque */}
+      {/* Minimal pedestal label: author · nationality · work (only) */}
       <Html
-        position={[1.55, 1.1, 0]}
+        position={[0, 1.32, 0.62]}
         transform
         occlude={false}
         distanceFactor={2.2}
-        rotation={[0, -0.35, 0]}
+        rotation={[-0.5, 0, 0]}
         style={{ pointerEvents: "none" }}
       >
-        <div className="lit-plaque" style={{ borderLeftColor: accent }}>
+        <div className="lit-label" style={{ borderTopColor: accent }}>
           <small>{exhibit.nationality ?? "Latinoamérica"}</small>
           <strong>{exhibit.author}</strong>
           <em>{exhibit.work}</em>
-          {exhibit.year && <span>{exhibit.year}</span>}
         </div>
       </Html>
 
@@ -531,91 +590,7 @@ function ExhibitNode({
   );
 }
 
-// ---------- Room ----------
-function RoomShell({ room, onNear, onOpen, near }: {
-  room: Room;
-  near: NearTarget | null;
-  onNear: (n: NearTarget | null) => void;
-  onOpen: (e: Exhibit) => void;
-}) {
-  // Room is positioned so its "front" (door side) faces lobby (toward origin).
-  // We place it at distance ROOM_DIST along room.angle.
-  const cx = Math.cos(room.angle) * ROOM_DIST;
-  const cz = Math.sin(room.angle) * ROOM_DIST;
-  // Rotate the whole room so its local +z points away from the lobby.
-  const rotY = -room.angle - Math.PI / 2;
-
-  // Exhibits along back wall (negative-local-z, i.e. far from door)
-  const n = room.exhibits.length;
-  // Distribute: 3 on back wall, others on side walls if 4
-  const placements: { pos: [number, number, number]; face: number; exhibit: Exhibit }[] = [];
-  if (n <= 3) {
-    room.exhibits.forEach((ex, i) => {
-      const x = THREE.MathUtils.lerp(-ROOM_W / 2 + 3, ROOM_W / 2 - 3, n === 1 ? 0.5 : i / (n - 1));
-      placements.push({ pos: [x, 0, -ROOM_D / 2 + 1.5], face: 0, exhibit: ex });
-    });
-  } else {
-    // 4 exhibits: 2 on back, 1 on each side
-    placements.push({ pos: [-3.5, 0, -ROOM_D / 2 + 1.5], face: 0, exhibit: room.exhibits[0] });
-    placements.push({ pos: [3.5, 0, -ROOM_D / 2 + 1.5], face: 0, exhibit: room.exhibits[1] });
-    placements.push({ pos: [-ROOM_W / 2 + 1.5, 0, -3], face: Math.PI / 2, exhibit: room.exhibits[2] });
-    placements.push({ pos: [ROOM_W / 2 - 1.5, 0, -3], face: -Math.PI / 2, exhibit: room.exhibits[3] });
-  }
-
-  return (
-    <group position={[cx, 0, cz]} rotation={[0, rotY, 0]}>
-      {/* floor */}
-      <mesh rotation-x={-Math.PI / 2} position={[0, 0.005, 0]} receiveShadow>
-        <planeGeometry args={[ROOM_W, ROOM_D]} />
-        <meshStandardMaterial color="#efe6d2" roughness={0.95} />
-      </mesh>
-      {/* walls: back, left, right; front has doorway */}
-      <Wall position={[0, WALL_H / 2, -ROOM_D / 2]} size={[ROOM_W, WALL_H, WALL_T]} />
-      <Wall position={[-ROOM_W / 2, WALL_H / 2, 0]} size={[WALL_T, WALL_H, ROOM_D]} />
-      <Wall position={[ROOM_W / 2, WALL_H / 2, 0]} size={[WALL_T, WALL_H, ROOM_D]} />
-      <WallWithDoor
-        center={[0, 0, ROOM_D / 2]}
-        length={ROOM_W}
-        rotationY={0}
-        doorWidth={DOOR_W}
-      />
-      {/* ceiling with central skylight */}
-      <mesh rotation-x={Math.PI / 2} position={[0, WALL_H, 0]}>
-        <planeGeometry args={[ROOM_W, ROOM_D]} />
-        <meshStandardMaterial color="#f9f2e1" roughness={1} side={THREE.DoubleSide} />
-      </mesh>
-      <Skylight position={[0, WALL_H - 0.02, -2]} size={[ROOM_W * 0.5, ROOM_D * 0.4]} />
-
-      {/* Room name plaque above door (visible from outside) */}
-      <Html position={[0, WALL_H - 0.4, ROOM_D / 2 + 0.05]} transform distanceFactor={3} occlude={false}>
-        <div className="lit-room-sign" style={{ borderColor: room.accent, color: room.accent }}>
-          <span>{room.name}</span>
-          <small>{room.curator}</small>
-        </div>
-      </Html>
-
-      {/* exhibits */}
-      {placements.map((p) => {
-        // world position for proximity check
-        const local = new THREE.Vector3(p.pos[0], p.pos[1], p.pos[2]);
-        const world = local.clone().applyEuler(new THREE.Euler(0, rotY, 0)).add(new THREE.Vector3(cx, 0, cz));
-        return (
-          <ExhibitNode
-            key={p.exhibit.id}
-            exhibit={p.exhibit}
-            roomId={room.id}
-            worldPosition={[world.x, world.y, world.z]}
-            facingY={rotY + p.face}
-            accent={room.accent}
-            near={near}
-            onNear={onNear}
-            onOpen={() => onOpen(p.exhibit)}
-          />
-        );
-      })}
-    </group>
-  );
-}
+// (Legacy RoomShell removed — exhibits live in world space; see Scene + RoomGeometry.)
 
 // We need to attach ExhibitNode in world coords (not nested in the rotated room group) so the
 // proximity check uses world camera position. So we re-implement: place ExhibitNodes outside
@@ -626,17 +601,18 @@ function RoomGeometry({ room }: { room: Room }) {
   const cz = Math.sin(room.angle) * ROOM_DIST;
   const rotY = -room.angle - Math.PI / 2;
   // Floor variants by room accent for personality
-  const floorColor = room.id === "bianca" ? "#ece1c4"
-    : room.id === "jose-david" ? "#e7e0c8"
-    : room.id === "luna" ? "#f0e2d6"
-    : "#e3dec6";
-  const quote = ROOM_QUOTES[room.id];
+  const floorColor = room.id === "bianca" ? "#c79a64"
+    : room.id === "jose-david" ? "#b88a52"
+    : room.id === "luna" ? "#cfa274"
+    : "#a8794a";
   return (
     <group position={[cx, 0, cz]} rotation={[0, rotY, 0]}>
-      <mesh rotation-x={-Math.PI / 2} position={[0, 0.005, 0]} receiveShadow>
-        <planeGeometry args={[ROOM_W, ROOM_D]} />
-        <meshStandardMaterial color={floorColor} roughness={0.92} />
-      </mesh>
+      <WoodFloor
+        width={ROOM_W}
+        depth={ROOM_D}
+        light={floorColor}
+        dark={room.id === "luna" ? "#9b6d49" : room.id === "joaquin" ? "#7a5a36" : "#8c6536"}
+      />
       {/* central rug in accent color */}
       <mesh rotation-x={-Math.PI / 2} position={[0, 0.015, 1]} receiveShadow>
         <planeGeometry args={[ROOM_W * 0.55, ROOM_D * 0.55]} />
@@ -655,7 +631,7 @@ function RoomGeometry({ room }: { room: Room }) {
         <planeGeometry args={[ROOM_W, ROOM_D]} />
         <meshStandardMaterial color="#f9f2e1" roughness={1} side={THREE.DoubleSide} />
       </mesh>
-      <Skylight position={[0, WALL_H - 0.02, -2]} size={[ROOM_W * 0.5, ROOM_D * 0.4]} />
+      <CeilingPanel position={[0, WALL_H - 0.02, -2]} size={[ROOM_W * 0.55, ROOM_D * 0.45]} />
       {/* baseboard wood trim */}
       <mesh position={[0, 0.1, -ROOM_D / 2 + WALL_T / 2 + 0.01]}>
         <boxGeometry args={[ROOM_W, 0.2, 0.04]} />
@@ -665,9 +641,9 @@ function RoomGeometry({ room }: { room: Room }) {
       {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz], i) => (
         <Column key={i} position={[(sx as number) * (ROOM_W / 2 - 0.6), 0, (sz as number) * (ROOM_D / 2 - 0.6)]} />
       ))}
-      {/* hanging lamps grid */}
+      {/* hanging lamps grid (warm, dim) */}
       {[[-3.5, -4], [3.5, -4], [0, 2], [-3.5, 6], [3.5, 6]].map(([x, z], i) => (
-        <HangingLamp key={i} position={[x, WALL_H - 1.4, z]} color={room.accent} intensity={10} />
+        <HangingLamp key={i} position={[x, WALL_H - 1.4, z]} color="#ffd9a3" intensity={5} />
       ))}
       {/* benches facing the back wall */}
       <Bench position={[-4, 0, 4]} rotationY={Math.PI} />
@@ -677,18 +653,20 @@ function RoomGeometry({ room }: { room: Room }) {
       {/* planters by the door */}
       <Planter position={[-ROOM_W / 2 + 1.4, 0, ROOM_D / 2 - 1.6]} />
       <Planter position={[ROOM_W / 2 - 1.4, 0, ROOM_D / 2 - 1.6]} />
-      {/* engraved quote on back wall */}
-      {quote && (
-        <Html
-          position={[0, WALL_H - 1.6, -ROOM_D / 2 + WALL_T + 0.02]}
-          transform
-          occlude={false}
-          distanceFactor={4.5}
-          style={{ pointerEvents: "none" }}
-        >
-          <div className="lit-quote" style={{ color: room.accent }}>{quote}</div>
-        </Html>
-      )}
+      {/* Decorative wall niches on back wall (between exhibits) */}
+      {[-ROOM_W / 2 + 2.2, ROOM_W / 2 - 2.2].map((x, i) => (
+        <mesh key={i} position={[x, 3.4, -ROOM_D / 2 + WALL_T / 2 + 0.06]}>
+          <boxGeometry args={[1.2, 2.4, 0.12]} />
+          <meshStandardMaterial color="#ece3cf" roughness={0.95} />
+        </mesh>
+      ))}
+      {/* Side wall paneling strips (moldings) */}
+      {[-1, 1].map((s) => (
+        <mesh key={`mold${s}`} position={[s * (ROOM_W / 2 - WALL_T / 2 - 0.04), 1.6, 0]}>
+          <boxGeometry args={[0.04, 0.06, ROOM_D - 1]} />
+          <meshStandardMaterial color={TRIM_COLOR} />
+        </mesh>
+      ))}
     </group>
   );
 }
@@ -735,12 +713,12 @@ function Lobby() {
         );
       })}
 
-      {/* high ceiling with grand skylight */}
+      {/* closed coffered ceiling with recessed warm lamp */}
       <mesh rotation-x={Math.PI / 2} position={[0, WALL_H + 1, 0]}>
         <planeGeometry args={[LOBBY_SIZE, LOBBY_SIZE]} />
-        <meshStandardMaterial color="#f9f2e1" roughness={1} side={THREE.DoubleSide} />
+        <meshStandardMaterial color="#f1e6cb" roughness={1} side={THREE.DoubleSide} />
       </mesh>
-      <Skylight position={[0, WALL_H + 0.98, 0]} size={[10, 10]} />
+      <CeilingPanel position={[0, WALL_H + 0.98, 0]} size={[12, 12]} />
 
       {/* central floating books sculpture */}
       <FloatingBooksSculpture />
@@ -786,33 +764,75 @@ function Lobby() {
       {[
         [-4, 0, -4], [4, 0, -4], [-4, 0, 4], [4, 0, 4],
       ].map((p, i) => (
-        <HangingLamp key={`lp${i}`} position={[p[0], WALL_H - 0.6, p[2]]} color="#ffe4b0" intensity={16} />
+        <HangingLamp key={`lp${i}`} position={[p[0], WALL_H - 0.6, p[2]]} color="#ffd9a3" intensity={7} />
       ))}
 
-      {/* big floating museum title */}
-      <Html position={[0, 7.6, 0]} center distanceFactor={9}>
-        <div className="lit-museum-title">
-          <small>MUSEO LITERARIO</small>
-          <span>CANON LITERARIO ALTERNATIVO</span>
-        </div>
-      </Html>
-
-      {/* directory: pedestal map at front */}
+      {/* solid directory pedestal — no floating UI */}
       <mesh position={[0, 0.6, 9]} castShadow>
         <boxGeometry args={[3, 1.2, 0.6]} />
         <meshStandardMaterial color={PEDESTAL_COLOR} roughness={0.9} />
       </mesh>
-      <Html position={[0, 1.55, 9]} transform distanceFactor={3.2} rotation={[-0.4, 0, 0]}>
-        <div className="lit-directory">
-          <h4>DIRECTORIO</h4>
-          <ul>
-            {ROOMS.map((r) => (
-              <li key={r.id}>
-                <span style={{ background: r.accent }} />
-                {r.name}
-              </li>
-            ))}
-          </ul>
+      <mesh position={[0, 1.21, 9]}>
+        <boxGeometry args={[3.1, 0.04, 0.7]} />
+        <meshStandardMaterial color={WOOD_DARK} roughness={0.6} />
+      </mesh>
+    </group>
+  );
+}
+
+// ---------- Corridor connecting lobby to a room ----------
+function Corridor({ room }: { room: Room }) {
+  // The lobby outer wall is at LOBBY_SIZE/2 from origin along the room.angle direction.
+  // The room's front (door) wall sits at ROOM_DIST - ROOM_D/2.
+  const inner = LOBBY_SIZE / 2;
+  const outer = ROOM_DIST - ROOM_D / 2;
+  const len = outer - inner;
+  const mid = (inner + outer) / 2;
+  const cx = Math.cos(room.angle) * mid;
+  const cz = Math.sin(room.angle) * mid;
+  const rotY = -room.angle - Math.PI / 2; // local +z faces the room
+  const w = DOOR_W + 1.6; // corridor width
+  return (
+    <group position={[cx, 0, cz]} rotation={[0, rotY, 0]}>
+      {/* wood floor */}
+      <WoodFloor width={w} depth={len} light="#b88e5a" dark="#8c6536" />
+      {/* side walls */}
+      <mesh position={[-w / 2, WALL_H / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[WALL_T, WALL_H, len]} />
+        <meshStandardMaterial color={WALL_COLOR} roughness={0.95} />
+      </mesh>
+      <mesh position={[w / 2, WALL_H / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[WALL_T, WALL_H, len]} />
+        <meshStandardMaterial color={WALL_COLOR} roughness={0.95} />
+      </mesh>
+      {/* ceiling */}
+      <mesh rotation-x={Math.PI / 2} position={[0, WALL_H, 0]}>
+        <planeGeometry args={[w, len]} />
+        <meshStandardMaterial color="#f1e6cb" roughness={1} side={THREE.DoubleSide} />
+      </mesh>
+      {/* baseboard */}
+      {[-1, 1].map((s) => (
+        <mesh key={s} position={[s * (w / 2 - WALL_T / 2 - 0.02), 0.1, 0]}>
+          <boxGeometry args={[0.04, 0.2, len]} />
+          <meshStandardMaterial color={TRIM_COLOR} />
+        </mesh>
+      ))}
+      {/* hanging lamps */}
+      <HangingLamp position={[0, WALL_H - 1.2, -len / 4]} color="#ffd9a3" intensity={6} />
+      <HangingLamp position={[0, WALL_H - 1.2, len / 4]} color="#ffd9a3" intensity={6} />
+      {/* room name engraved on left wall */}
+      <Html
+        position={[-w / 2 + WALL_T / 2 + 0.01, WALL_H / 2 + 0.6, 0]}
+        transform
+        occlude={false}
+        rotation={[0, Math.PI / 2, 0]}
+        distanceFactor={3.2}
+        style={{ pointerEvents: "none" }}
+      >
+        <div className="lit-corridor-sign" style={{ color: room.accent }}>
+          <small>SALA</small>
+          <strong>{room.name.replace(/^Sala\s+/i, "")}</strong>
+          <span>{room.curator}</span>
         </div>
       </Html>
     </group>
@@ -835,25 +855,19 @@ function Scene({
 }) {
   return (
     <>
-      <color attach="background" args={["#f4ecdc"]} />
-      <fog attach="fog" args={["#f4ecdc", 40, 130]} />
-      <ambientLight intensity={0.65} />
-      <hemisphereLight args={["#fff4d8", "#d8c9a5", 0.9]} />
-      <directionalLight
-        position={[20, 25, 10]}
-        intensity={1.6}
-        color="#fff6e3"
-        castShadow
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
-      />
-      <Suspense fallback={null}>
-        <Sky sunPosition={[20, 25, 10]} turbidity={2} rayleigh={0.6} mieCoefficient={0.005} mieDirectionalG={0.7} />
-      </Suspense>
+      {/* Fully enclosed interior — no sky, dim warm ambient */}
+      <color attach="background" args={["#1a140c"]} />
+      <fog attach="fog" args={["#2a1f10", 18, 70]} />
+      <ambientLight intensity={0.28} color="#ffe6c0" />
+      <hemisphereLight args={["#ffd9a3", "#3a2a18", 0.35]} />
+      <Suspense fallback={null}>{null}</Suspense>
 
       <Lobby />
       {ROOMS.map((r) => (
         <RoomGeometry key={r.id} room={r} />
+      ))}
+      {ROOMS.map((r) => (
+        <Corridor key={`cor-${r.id}`} room={r} />
       ))}
 
       {/* Exhibits live in world space so proximity checks work consistently */}
