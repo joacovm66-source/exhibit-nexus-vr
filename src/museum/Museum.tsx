@@ -532,35 +532,42 @@ function ExhibitNode({
         <boxGeometry args={[0.9, 0.18, 1.2]} />
         <meshStandardMaterial color={accent} roughness={0.6} />
       </mesh>
-      {/* framed cover hovering on wall behind */}
-      <Html
-        position={[0, 2.5, -0.85]}
-        transform
-        occlude={false}
-        distanceFactor={2.6}
-        style={{ pointerEvents: "none" }}
-      >
-        <div className="lit-frame">
-          <div className="lit-frame-author">{exhibit.author}</div>
-          <CoverImg exhibit={exhibit} className="lit-frame-img" />
-          <div className="lit-frame-title">{exhibit.work}</div>
-        </div>
-      </Html>
+      {/* Framed cover mounted on the wall behind the pedestal — physical 3D plane (no overlapping HTML) */}
+      <group position={[0, 3, -1.05]}>
+        <mesh castShadow>
+          <boxGeometry args={[1.65, 2.25, 0.08]} />
+          <meshStandardMaterial color={WOOD_DARK} roughness={0.6} />
+        </mesh>
+        <mesh position={[0, 0, 0.045]}>
+          <planeGeometry args={[1.4, 2.0]} />
+          <meshStandardMaterial color="#faf2dc" roughness={0.9} />
+        </mesh>
+        <Html
+          position={[0, 0, 0.06]}
+          transform
+          occlude={false}
+          distanceFactor={2.4}
+          style={{ pointerEvents: "none", width: 220 }}
+        >
+          <div className="lit-wall-frame">
+            <CoverImg exhibit={exhibit} className="lit-wall-cover" />
+          </div>
+        </Html>
+      </group>
 
-      {/* side info plaque */}
+      {/* Minimal pedestal label: author · nationality · work (only) */}
       <Html
-        position={[1.55, 1.1, 0]}
+        position={[0, 1.32, 0.62]}
         transform
         occlude={false}
         distanceFactor={2.2}
-        rotation={[0, -0.35, 0]}
+        rotation={[-0.5, 0, 0]}
         style={{ pointerEvents: "none" }}
       >
-        <div className="lit-plaque" style={{ borderLeftColor: accent }}>
+        <div className="lit-label" style={{ borderTopColor: accent }}>
           <small>{exhibit.nationality ?? "Latinoamérica"}</small>
           <strong>{exhibit.author}</strong>
           <em>{exhibit.work}</em>
-          {exhibit.year && <span>{exhibit.year}</span>}
         </div>
       </Html>
 
@@ -685,10 +692,12 @@ function RoomGeometry({ room }: { room: Room }) {
   const quote = ROOM_QUOTES[room.id];
   return (
     <group position={[cx, 0, cz]} rotation={[0, rotY, 0]}>
-      <mesh rotation-x={-Math.PI / 2} position={[0, 0.005, 0]} receiveShadow>
-        <planeGeometry args={[ROOM_W, ROOM_D]} />
-        <meshStandardMaterial color={floorColor} roughness={0.92} />
-      </mesh>
+      <WoodFloor
+        width={ROOM_W}
+        depth={ROOM_D}
+        light={floorColor}
+        dark={room.id === "luna" ? "#9b6d49" : room.id === "joaquin" ? "#7a5a36" : "#8c6536"}
+      />
       {/* central rug in accent color */}
       <mesh rotation-x={-Math.PI / 2} position={[0, 0.015, 1]} receiveShadow>
         <planeGeometry args={[ROOM_W * 0.55, ROOM_D * 0.55]} />
@@ -707,7 +716,7 @@ function RoomGeometry({ room }: { room: Room }) {
         <planeGeometry args={[ROOM_W, ROOM_D]} />
         <meshStandardMaterial color="#f9f2e1" roughness={1} side={THREE.DoubleSide} />
       </mesh>
-      <Skylight position={[0, WALL_H - 0.02, -2]} size={[ROOM_W * 0.5, ROOM_D * 0.4]} />
+      <CeilingPanel position={[0, WALL_H - 0.02, -2]} size={[ROOM_W * 0.55, ROOM_D * 0.45]} />
       {/* baseboard wood trim */}
       <mesh position={[0, 0.1, -ROOM_D / 2 + WALL_T / 2 + 0.01]}>
         <boxGeometry args={[ROOM_W, 0.2, 0.04]} />
@@ -729,18 +738,20 @@ function RoomGeometry({ room }: { room: Room }) {
       {/* planters by the door */}
       <Planter position={[-ROOM_W / 2 + 1.4, 0, ROOM_D / 2 - 1.6]} />
       <Planter position={[ROOM_W / 2 - 1.4, 0, ROOM_D / 2 - 1.6]} />
-      {/* engraved quote on back wall */}
-      {quote && (
-        <Html
-          position={[0, WALL_H - 1.6, -ROOM_D / 2 + WALL_T + 0.02]}
-          transform
-          occlude={false}
-          distanceFactor={4.5}
-          style={{ pointerEvents: "none" }}
-        >
-          <div className="lit-quote" style={{ color: room.accent }}>{quote}</div>
-        </Html>
-      )}
+      {/* Decorative wall niches on back wall (between exhibits) */}
+      {[-ROOM_W / 2 + 2.2, ROOM_W / 2 - 2.2].map((x, i) => (
+        <mesh key={i} position={[x, 3.4, -ROOM_D / 2 + WALL_T / 2 + 0.06]}>
+          <boxGeometry args={[1.2, 2.4, 0.12]} />
+          <meshStandardMaterial color="#ece3cf" roughness={0.95} />
+        </mesh>
+      ))}
+      {/* Side wall paneling strips (moldings) */}
+      {[-1, 1].map((s) => (
+        <mesh key={`mold${s}`} position={[s * (ROOM_W / 2 - WALL_T / 2 - 0.04), 1.6, 0]}>
+          <boxGeometry args={[0.04, 0.06, ROOM_D - 1]} />
+          <meshStandardMaterial color={TRIM_COLOR} />
+        </mesh>
+      ))}
     </group>
   );
 }
