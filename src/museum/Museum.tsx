@@ -151,35 +151,93 @@ function WallWithDoor({
   );
 }
 
-function Skylight({ position, size }: { position: [number, number, number]; size: [number, number] }) {
-  // Glass roof patch + a bright directional fill below
+function CeilingPanel({
+  position,
+  size,
+}: {
+  position: [number, number, number];
+  size: [number, number];
+}) {
+  // Decorative coffered ceiling panel with a warm recessed lamp.
   return (
     <group position={position}>
       <mesh rotation-x={Math.PI / 2}>
         <planeGeometry args={size} />
+        <meshStandardMaterial color="#f1e6cb" roughness={1} />
+      </mesh>
+      {/* trim border */}
+      {[-1, 1].map((s) => (
+        <mesh key={"x" + s} position={[(size[0] / 2) * s, -0.04, 0]}>
+          <boxGeometry args={[0.08, 0.08, size[1]]} />
+          <meshStandardMaterial color={TRIM_COLOR} />
+        </mesh>
+      ))}
+      {[-1, 1].map((s) => (
+        <mesh key={"z" + s} position={[0, -0.04, (size[1] / 2) * s]}>
+          <boxGeometry args={[size[0], 0.08, 0.08]} />
+          <meshStandardMaterial color={TRIM_COLOR} />
+        </mesh>
+      ))}
+      {/* recessed warm light disc */}
+      <mesh rotation-x={Math.PI / 2} position={[0, -0.06, 0]}>
+        <circleGeometry args={[Math.min(size[0], size[1]) * 0.18, 24]} />
         <meshStandardMaterial
-          color="#f8f1e1"
-          emissive="#fff6e3"
-          emissiveIntensity={0.6}
-          transparent
-          opacity={0.9}
-          roughness={0.2}
+          color="#fff1cf"
+          emissive="#ffd99a"
+          emissiveIntensity={0.7}
+          roughness={0.5}
         />
       </mesh>
-      {/* grid mullions */}
-      {[-1, 0, 1].map((i) => (
-        <mesh key={"a" + i} position={[(size[0] / 4) * i, -0.05, 0]}>
-          <boxGeometry args={[0.08, 0.1, size[1]]} />
-          <meshStandardMaterial color={TRIM_COLOR} />
-        </mesh>
-      ))}
-      {[-1, 0, 1].map((i) => (
-        <mesh key={"b" + i} position={[0, -0.05, (size[1] / 4) * i]}>
-          <boxGeometry args={[size[0], 0.1, 0.08]} />
-          <meshStandardMaterial color={TRIM_COLOR} />
-        </mesh>
-      ))}
-      <pointLight position={[0, -2, 0]} intensity={45} distance={28} color="#fff4d8" decay={1.6} />
+      <pointLight
+        position={[0, -1.8, 0]}
+        intensity={9}
+        distance={14}
+        color="#ffd9a3"
+        decay={1.8}
+      />
+    </group>
+  );
+}
+
+// Wood parquet floor (alternating plank tones)
+function WoodFloor({
+  width,
+  depth,
+  light = WOOD_PLANK_LIGHT,
+  dark = WOOD_PLANK_DARK,
+  z = 0,
+  x = 0,
+}: {
+  width: number;
+  depth: number;
+  light?: string;
+  dark?: string;
+  x?: number;
+  z?: number;
+}) {
+  const planks = Math.max(6, Math.floor(width / 0.9));
+  const pw = width / planks;
+  return (
+    <group position={[x, 0.005, z]}>
+      <mesh rotation-x={-Math.PI / 2} receiveShadow>
+        <planeGeometry args={[width, depth]} />
+        <meshStandardMaterial color={dark} roughness={0.85} />
+      </mesh>
+      {Array.from({ length: planks }).map((_, i) => {
+        const px = -width / 2 + pw / 2 + i * pw;
+        const c = i % 2 === 0 ? light : dark;
+        return (
+          <mesh
+            key={i}
+            rotation-x={-Math.PI / 2}
+            position={[px, 0.002, 0]}
+            receiveShadow
+          >
+            <planeGeometry args={[pw * 0.96, depth * 0.998]} />
+            <meshStandardMaterial color={c} roughness={0.78} />
+          </mesh>
+        );
+      })}
     </group>
   );
 }
