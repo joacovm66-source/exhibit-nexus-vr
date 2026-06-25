@@ -448,6 +448,16 @@ function ExhibitNode({
 
   return (
     <group position={worldPosition} rotation={[0, facingY, 0]}>
+      {/* directed spotlight on this exhibit */}
+      <spotLight
+        position={[0, 4.6, 1.2]}
+        angle={0.5}
+        penumbra={0.55}
+        intensity={18}
+        distance={9}
+        color="#fff2cf"
+        castShadow={false}
+      />
       {/* pedestal */}
       <mesh position={[0, 0.55, 0]} castShadow receiveShadow>
         <boxGeometry args={[1.6, 1.1, 1.2]} />
@@ -458,6 +468,13 @@ function ExhibitNode({
         <boxGeometry args={[1.62, 0.04, 1.22]} />
         <meshStandardMaterial color={accent} roughness={0.5} />
       </mesh>
+      {/* small velvet rope posts */}
+      {[-1, 1].map((s) => (
+        <mesh key={s} position={[s * 1.3, 0.45, 0.9]} castShadow>
+          <cylinderGeometry args={[0.04, 0.04, 0.9, 10]} />
+          <meshStandardMaterial color={accent} metalness={0.3} roughness={0.4} />
+        </mesh>
+      ))}
       {/* book object on top */}
       <mesh position={[0, 1.27, 0]} rotation={[-0.15, 0, 0]} castShadow>
         <boxGeometry args={[0.9, 0.18, 1.2]} />
@@ -473,8 +490,25 @@ function ExhibitNode({
       >
         <div className="lit-frame">
           <div className="lit-frame-author">{exhibit.author}</div>
-          <img src={exhibit.cover} alt={exhibit.work} draggable={false} />
+          <CoverImg exhibit={exhibit} className="lit-frame-img" />
           <div className="lit-frame-title">{exhibit.work}</div>
+        </div>
+      </Html>
+
+      {/* side info plaque */}
+      <Html
+        position={[1.55, 1.1, 0]}
+        transform
+        occlude={false}
+        distanceFactor={2.2}
+        rotation={[0, -0.35, 0]}
+        style={{ pointerEvents: "none" }}
+      >
+        <div className="lit-plaque" style={{ borderLeftColor: accent }}>
+          <small>{exhibit.nationality ?? "Latinoamérica"}</small>
+          <strong>{exhibit.author}</strong>
+          <em>{exhibit.work}</em>
+          {exhibit.year && <span>{exhibit.year}</span>}
         </div>
       </Html>
 
@@ -489,7 +523,7 @@ function ExhibitNode({
             }}
           >
             <span className="lit-hint-key">E</span>
-            Presiona <b>E</b> para explorar
+            Presiona para explorar
           </button>
         </Html>
       )}
