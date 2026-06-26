@@ -21,9 +21,6 @@ export type Room = {
   exhibits: Exhibit[];
 };
 
-const PLACEHOLDER =
-  "https://upload.wikimedia.org/wikipedia/commons/4/48/Book_cover_placeholder.png";
-
 export const ROOMS: Room[] = [
   {
     id: "bianca",
