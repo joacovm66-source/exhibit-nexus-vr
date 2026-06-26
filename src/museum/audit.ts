@@ -2,13 +2,18 @@ import { ROOMS } from "./types";
 
 type AuditIssue = { roomId: string; exhibitId: string; field: string; problem: string };
 
-const FORBIDDEN_PATTERNS = [
+// Patrones temporales que nunca deben quedar en la copia final.
+// Los marcadores tipo TODO/TBD/FIXME se buscan en mayúsculas (case-sensitive)
+// para no chocar con palabras españolas como "todo".
+const FORBIDDEN_PATTERNS: RegExp[] = [
   /PLACEHOLDER/i,
-  /\bTODO\b/i,
-  /\bTBD\b/i,
-  /\bFIXME\b/i,
+  /\bTODO\b/,
+  /\bTBD\b/,
+  /\bFIXME\b/,
+  /\bXXX\b/,
   /lorem ipsum/i,
   /placeholder\.png/i,
+  /\[\[.*?\]\]/, // marcadores tipo [[texto]]
 ];
 
 function checkText(value: string | undefined, field: string, ctx: { roomId: string; exhibitId: string }, issues: AuditIssue[]) {
