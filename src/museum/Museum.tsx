@@ -3,6 +3,7 @@ import { PointerLockControls, Html, Text, useTexture } from "@react-three/drei";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { ROOMS, type Exhibit, type Room } from "./types";
+import { runMuseumAudit } from "./audit";
 
 // ---------- Layout constants ----------
 const LOBBY_SIZE = 26;
@@ -985,8 +986,20 @@ export function MuseumApp() {
   const [active, setActive] = useState<{ exhibit: Exhibit; room: Room } | null>(null);
   const [showMap, setShowMap] = useState(false);
   const [visited, setVisited] = useState<Set<string>>(new Set());
+  const [audit, setAudit] = useState<{ ok: boolean; count: number } | null>(null);
   const nearRef = useRef<NearTarget | null>(null);
   const lastNearExhibitRef = useRef<{ exhibit: Exhibit; room: Room } | null>(null);
+
+  // Auditoría automática al montar: verifica autores, títulos, textos y portadas.
+  useEffect(() => {
+    let cancelled = false;
+    runMuseumAudit().then((r) => {
+      if (!cancelled) setAudit({ ok: r.ok, count: r.issues.length });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Track near in a ref for key handler
   useEffect(() => {
@@ -1078,6 +1091,19 @@ export function MuseumApp() {
             <span className="lit-passport-dot" />
             {visited.size}/{totalExhibits} sellos
           </div>
+          {audit && (
+            <div
+              className="lit-passport"
+              title={audit.ok ? "Auditoría: todo OK" : `Auditoría: ${audit.count} problema(s) — ver consola`}
+              style={{ borderColor: audit.ok ? "#3a7d44" : "#b03a2e" }}
+            >
+              <span
+                className="lit-passport-dot"
+                style={{ background: audit.ok ? "#3a7d44" : "#b03a2e" }}
+              />
+              {audit.ok ? "Auditoría ✓" : `Auditoría · ${audit.count}`}
+            </div>
+          )}
         </nav>
       </header>
 

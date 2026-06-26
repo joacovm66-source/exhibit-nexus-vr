@@ -21,9 +21,6 @@ export type Room = {
   exhibits: Exhibit[];
 };
 
-const PLACEHOLDER =
-  "https://upload.wikimedia.org/wikipedia/commons/4/48/Book_cover_placeholder.png";
-
 export const ROOMS: Room[] = [
   {
     id: "bianca",
@@ -41,7 +38,7 @@ export const ROOMS: Room[] = [
         description:
           "Poeta y artista surrealista. Uno de los pioneros de la vanguardia latinoamericana; expresó temas vinculados al deseo y la identidad sexual en una época marcada por la discriminación.",
         why: "Comentó sobre la diversidad sexual e innovación estética. Su poesía renovó el lenguaje literario peruano y representa una voz LGBTQIA+ históricamente marginada.",
-        cover: PLACEHOLDER,
+        cover: "",
       },
       {
         id: "cornejo",
@@ -51,7 +48,7 @@ export const ROOMS: Room[] = [
         description:
           "Poeta feminista, precursora de la poesía erótica en el Perú a inicios de los años 70. Murió a los 23 años, pero su obra tiene gran repercusión actual.",
         why: "Censurada por hablar abiertamente sobre sexualidad, femineidad y erotismo desde la voz de una mujer; su trabajo resuena hoy con nuevas generaciones de lectoras.",
-        cover: PLACEHOLDER,
+        cover: "",
       },
       {
         id: "churata",
@@ -62,7 +59,7 @@ export const ROOMS: Room[] = [
         description:
           "Escritor, periodista e intelectual puneño. Su obra integra filosofía andina, mitología indígena y las lenguas quechua y aimara. Durante mucho tiempo fue poco estudiado por romper con los modelos occidentales.",
         why: "Diversidad cultural e innovación literaria: una propuesta literaria desde la cosmovisión andina que reivindica las culturas indígenas en la literatura peruana.",
-        cover: PLACEHOLDER,
+        cover: "",
       },
       {
         id: "agustini",
@@ -73,7 +70,7 @@ export const ROOMS: Room[] = [
         description:
           "Poeta modernista que escribió sobre deseo femenino y erotismo en una época altamente conservadora. Fue asesinada joven y durante mucho tiempo su obra fue leída desde una mirada moralista que contribuyó a su marginación.",
         why: "Criterio de género y transgresión temática. Su poesía rompe con las normas sociales de su tiempo al expresar el deseo femenino de manera directa, motivo por el cual fue excluida del canon tradicional.",
-        cover: PLACEHOLDER,
+        cover: "",
       },
     ],
   },
@@ -122,7 +119,7 @@ export const ROOMS: Room[] = [
         description:
           "Narra una historia de amor, conflictos y valores morales dentro de la sociedad incaica, con Qurich'uspi (\u201cMosca Dorada\u201d) como personaje principal.",
         why: "Valor histórico y cultural: recupera temas de la tradición incaica y contribuye a preservar la memoria y los valores del pasado andino.",
-        cover: PLACEHOLDER,
+        cover: "",
       },
     ],
   },
@@ -141,7 +138,7 @@ export const ROOMS: Room[] = [
         description:
           "Concepto desarrollado por el periodista Antonio Orjeda para recoger y promover la experiencia de mujeres emprendedoras en el Perú.",
         why: "Dirigido sobre todo a niñas, reúne historias de mujeres que enfrentaron situaciones machistas o de discriminación y supieron luchar contra ellas, inspirando a las nuevas generaciones a seguir sus pasos.",
-        cover: PLACEHOLDER,
+        cover: "",
       },
       {
         id: "lemebel",
@@ -162,7 +159,7 @@ export const ROOMS: Room[] = [
         description:
           "Escribe desde lo que denomina marginalidad queer. Sus historias incluyen travestis, villas miseria, ocupaciones de tierras y religiosidad popular.",
         why: "Logra que personajes históricamente marginados ocupen el centro de relatos complejos y relevantes para la literatura latinoamericana contemporánea.",
-        cover: PLACEHOLDER,
+        cover: "",
       },
       {
         id: "melchor",
@@ -192,7 +189,7 @@ export const ROOMS: Room[] = [
         description:
           "Escritora y artista del pueblo shipibo-konibo de la Amazonía peruana. Su obra trata temas ancestrales y la relación espiritual entre las comunidades indígenas y la naturaleza.",
         why: "Representa a la Amazonía, históricamente excluida del canon tradicional. Su trabajo preserva la cultura y la cosmovisión indígena.",
-        cover: PLACEHOLDER,
+        cover: "",
       },
       {
         id: "kambeba",
@@ -202,7 +199,7 @@ export const ROOMS: Room[] = [
         description:
           "Poeta y activista del pueblo Omágua-Kambeba. Sus poemas abordan la identidad indígena, la vida en las ciudades, la protección de la Amazonía y los desafíos actuales de las comunidades originarias.",
         why: "Visibiliza la experiencia indígena contemporánea y rompe con la idea de que los pueblos originarios pertenecen únicamente al pasado.",
-        cover: PLACEHOLDER,
+        cover: "",
       },
       {
         id: "calvo",
@@ -212,7 +209,7 @@ export const ROOMS: Room[] = [
         description:
           "Escritor nacido en Iquitos que exploró los saberes, creencias y formas de vida de los pueblos amazónicos. Su novela mezcla realidad, tradición oral y espiritualidad indígena.",
         why: "Ofrece una visión de la Amazonía distinta a la de la literatura occidental y da protagonismo a conocimientos marginados por el canon.",
-        cover: PLACEHOLDER,
+        cover: "",
       },
       {
         id: "yagua",
@@ -222,7 +219,7 @@ export const ROOMS: Room[] = [
         description:
           "Escritor del pueblo Maraguá que recupera mitos, leyendas y relatos transmitidos oralmente por generaciones. Busca preservar y difundir la cultura amazónica indígena.",
         why: "Integra al canon narraciones que la tradición occidental no suele considerar literatura: autor indígena, literatura oral, contexto amazónico.",
-        cover: PLACEHOLDER,
+        cover: "",
       },
     ],
   },
