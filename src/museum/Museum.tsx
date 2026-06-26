@@ -469,13 +469,12 @@ function CoverImg({ exhibit, className }: { exhibit: Exhibit; className?: string
 // ---------- 3D wall-mounted cover (textured plane — no HTML) ----------
 function WallCoverPlane({ exhibitId }: { exhibitId: string }) {
   const tex = useTexture(`/covers/${exhibitId}.jpg`);
-  // Improve crispness / orientation
-  // @ts-expect-error: anisotropy exists at runtime
-  if (tex && tex.anisotropy !== undefined) tex.anisotropy = 8;
+  const t = tex as THREE.Texture;
+  if (t) t.anisotropy = 8;
   return (
     <mesh position={[0, 0, 0.05]}>
       <planeGeometry args={[1.35, 1.95]} />
-      <meshStandardMaterial map={tex as THREE.Texture} roughness={0.85} />
+      <meshStandardMaterial map={t} roughness={0.85} />
     </mesh>
   );
 }
