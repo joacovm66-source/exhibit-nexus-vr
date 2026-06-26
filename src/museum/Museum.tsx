@@ -1,5 +1,5 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { PointerLockControls, Html } from "@react-three/drei";
+import { PointerLockControls, Html, Text, useTexture } from "@react-three/drei";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { ROOMS, type Exhibit, type Room } from "./types";
@@ -463,6 +463,20 @@ function CoverImg({ exhibit, className }: { exhibit: Exhibit; className?: string
         style={loaded ? undefined : { display: "none" }}
       />
     </>
+  );
+}
+
+// ---------- 3D wall-mounted cover (textured plane — no HTML) ----------
+function WallCoverPlane({ exhibitId }: { exhibitId: string }) {
+  const tex = useTexture(`/covers/${exhibitId}.jpg`);
+  // Improve crispness / orientation
+  // @ts-expect-error: anisotropy exists at runtime
+  if (tex && tex.anisotropy !== undefined) tex.anisotropy = 8;
+  return (
+    <mesh position={[0, 0, 0.05]}>
+      <planeGeometry args={[1.35, 1.95]} />
+      <meshStandardMaterial map={tex as THREE.Texture} roughness={0.85} />
+    </mesh>
   );
 }
 
