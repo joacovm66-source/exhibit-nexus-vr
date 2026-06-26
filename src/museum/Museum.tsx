@@ -863,21 +863,43 @@ function Corridor({ room }: { room: Room }) {
       {/* hanging lamps */}
       <HangingLamp position={[0, WALL_H - 1.2, -len / 4]} color="#ffd9a3" intensity={6} />
       <HangingLamp position={[0, WALL_H - 1.2, len / 4]} color="#ffd9a3" intensity={6} />
-      {/* room name engraved on left wall */}
-      <Html
-        position={[-w / 2 + WALL_T / 2 + 0.01, WALL_H / 2 + 0.6, 0]}
-        transform
-        occlude={false}
+      {/* room name engraved on left wall — real 3D text (no HTML bleed) */}
+      <group
+        position={[-w / 2 + WALL_T / 2 + 0.02, WALL_H / 2 + 0.4, 0]}
         rotation={[0, Math.PI / 2, 0]}
-        distanceFactor={3.2}
-        style={{ pointerEvents: "none" }}
       >
-        <div className="lit-corridor-sign" style={{ color: room.accent }}>
-          <small>SALA</small>
-          <strong>{room.name.replace(/^Sala\s+/i, "")}</strong>
-          <span>{room.curator}</span>
-        </div>
-      </Html>
+        <Text
+          position={[0, 0.7, 0]}
+          fontSize={0.18}
+          color={room.accent}
+          anchorX="center"
+          anchorY="middle"
+          letterSpacing={0.4}
+        >
+          SALA
+        </Text>
+        <Text
+          position={[0, 0.2, 0]}
+          fontSize={0.85}
+          color={room.accent}
+          anchorX="center"
+          anchorY="middle"
+          maxWidth={6}
+          textAlign="center"
+        >
+          {room.name.replace(/^Sala\s+/i, "")}
+        </Text>
+        <Text
+          position={[0, -0.45, 0]}
+          fontSize={0.14}
+          color="#a8967a"
+          anchorX="center"
+          anchorY="middle"
+          letterSpacing={0.25}
+        >
+          {room.curator.toUpperCase()}
+        </Text>
+      </group>
     </group>
   );
 }
