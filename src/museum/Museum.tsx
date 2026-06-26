@@ -545,48 +545,78 @@ function ExhibitNode({
         <boxGeometry args={[0.9, 0.18, 1.2]} />
         <meshStandardMaterial color={accent} roughness={0.6} />
       </mesh>
-      {/* Framed cover mounted on the wall behind the pedestal — physical 3D plane (no overlapping HTML) */}
-      <group position={[0, 3, -1.05]}>
+      {/* Framed cover mounted on the wall behind the pedestal — fully 3D, never bleeds */}
+      <group position={[0, 3, -1.02]}>
+        {/* wood frame */}
         <mesh castShadow>
-          <boxGeometry args={[1.65, 2.25, 0.08]} />
+          <boxGeometry args={[1.6, 2.2, 0.08]} />
           <meshStandardMaterial color={WOOD_DARK} roughness={0.6} />
         </mesh>
+        {/* paper backing */}
         <mesh position={[0, 0, 0.045]}>
-          <planeGeometry args={[1.4, 2.0]} />
-          <meshStandardMaterial color="#faf2dc" roughness={0.9} />
+          <planeGeometry args={[1.42, 2.02]} />
+          <meshStandardMaterial color="#faf2dc" roughness={0.95} />
         </mesh>
-        <Html
-          position={[0, 0, 0.06]}
-          transform
-          occlude={false}
-          distanceFactor={2.4}
-          style={{ pointerEvents: "none", width: 220 }}
-        >
-          <div className="lit-wall-frame">
-            <CoverImg exhibit={exhibit} className="lit-wall-cover" />
-          </div>
-        </Html>
+        {/* textured cover (Suspense fallback = nothing while loading) */}
+        <Suspense fallback={null}>
+          <WallCoverPlane exhibitId={exhibit.id} />
+        </Suspense>
       </group>
 
-      {/* Minimal pedestal label: author · nationality · work (only) */}
-      <Html
-        position={[0, 1.32, 0.62]}
-        transform
-        occlude={false}
-        distanceFactor={2.2}
-        rotation={[-0.5, 0, 0]}
-        style={{ pointerEvents: "none" }}
-      >
-        <div className="lit-label" style={{ borderTopColor: accent }}>
-          <small>{exhibit.nationality ?? "Latinoamérica"}</small>
-          <strong>{exhibit.author}</strong>
-          <em>{exhibit.work}</em>
-        </div>
-      </Html>
+      {/* Pedestal plaque — engraved 3D text only (author + work). No HTML. */}
+      <group position={[0, 1.13, 0.61]} rotation={[-0.5, 0, 0]}>
+        <mesh>
+          <planeGeometry args={[1.45, 0.45]} />
+          <meshStandardMaterial color="#f4ecd6" roughness={0.85} />
+        </mesh>
+        <mesh position={[0, 0.21, 0.001]}>
+          <planeGeometry args={[1.45, 0.03]} />
+          <meshStandardMaterial color={accent} roughness={0.6} />
+        </mesh>
+        <Text
+          position={[0, 0.09, 0.002]}
+          fontSize={0.085}
+          color="#2a2419"
+          anchorX="center"
+          anchorY="middle"
+          maxWidth={1.35}
+          textAlign="center"
+        >
+          {exhibit.author}
+        </Text>
+        <Text
+          position={[0, -0.05, 0.002]}
+          fontSize={0.065}
+          color="#5a4a32"
+          anchorX="center"
+          anchorY="middle"
+          maxWidth={1.35}
+          textAlign="center"
+          fontStyle="italic"
+        >
+          {exhibit.work}
+        </Text>
+        <Text
+          position={[0, -0.16, 0.002]}
+          fontSize={0.038}
+          color="#8a7755"
+          anchorX="center"
+          anchorY="middle"
+          letterSpacing={0.25}
+        >
+          {(exhibit.nationality ?? "LATINOAMÉRICA").toUpperCase()}
+        </Text>
+      </group>
 
-      {/* proximity hint */}
+      {/* proximity hint — only DOM allowed in the scene; occluded by walls */}
       {isNear && (
-        <Html position={[0, 2.05, 0]} center distanceFactor={6}>
+        <Html
+          position={[0, 2.05, 0]}
+          center
+          distanceFactor={6}
+          occlude="blending"
+          zIndexRange={[100, 0]}
+        >
           <button
             className="lit-hint"
             onClick={(e) => {
