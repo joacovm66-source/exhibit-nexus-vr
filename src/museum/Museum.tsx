@@ -592,7 +592,6 @@ function ExhibitNode({
           anchorY="middle"
           maxWidth={1.35}
           textAlign="center"
-          fontStyle="italic"
         >
           {exhibit.work}
         </Text>
