@@ -1,9 +1,42 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { PointerLockControls, Html, Text, useTexture } from "@react-three/drei";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Component, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import * as THREE from "three";
 import { ROOMS, type Exhibit, type Room } from "./types";
 import { runMuseumAudit } from "./audit";
+
+// ---------- Error boundary (prevents 3D/WebGL crashes from triggering the SSR 500 page) ----------
+class MuseumErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  componentDidCatch(error: Error, info: unknown) {
+    console.error("[museum] render error", error, info);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="lit-start">
+          <div className="lit-start-card">
+            <div className="lit-start-eyebrow">ERROR DE RENDERIZADO 3D</div>
+            <h1>No pudimos<br />abrir la sala</h1>
+            <p>
+              Tu navegador no pudo inicializar la escena 3D del museo. Suele ocurrir cuando WebGL
+              está deshabilitado o la aceleración por hardware falla. Recarga la página o prueba en
+              otro navegador.
+            </p>
+            <button className="lit-cta" onClick={() => location.reload()}>
+              Reintentar →
+            </button>
+            <div className="lit-start-hint">{String(this.state.error.message || this.state.error)}</div>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // ---------- Layout constants ----------
 const LOBBY_SIZE = 26;
