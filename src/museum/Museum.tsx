@@ -1013,6 +1013,8 @@ function Scene({
 
 // ---------- App + HUD ----------
 export function MuseumApp() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const [started, setStarted] = useState(false);
   const [teleport, setTeleport] = useState<[number, number, number] | null>(null);
   const [near, setNear] = useState<NearTarget | null>(null);
@@ -1092,21 +1094,33 @@ export function MuseumApp() {
   const totalExhibits = ROOMS.reduce((a, r) => a + r.exhibits.length, 0);
 
   return (
+    <MuseumErrorBoundary>
     <div className="lit-root">
-      <Canvas
-        shadows
-        camera={{ position: [0, 1.7, 10], fov: 65 }}
-        gl={{ antialias: true, powerPreference: "high-performance" }}
-      >
-        <Scene
-          teleportTo={teleport}
-          onPlayerMove={() => {}}
-          near={near}
-          onNear={setNear}
-          onOpen={handleOpen}
-        />
-        {started && <PointerLockControls />}
-      </Canvas>
+      {mounted ? (
+        <Canvas
+          shadows
+          camera={{ position: [0, 1.7, 10], fov: 65 }}
+          gl={{ antialias: true, powerPreference: "high-performance", failIfMajorPerformanceCaveat: false }}
+          onCreated={({ gl }) => {
+            const canvas = gl.domElement;
+            canvas.addEventListener("webglcontextlost", (e) => {
+              e.preventDefault();
+              console.warn("[museum] WebGL context lost — esperando restauración");
+            });
+          }}
+        >
+          <Scene
+            teleportTo={teleport}
+            onPlayerMove={() => {}}
+            near={near}
+            onNear={setNear}
+            onOpen={handleOpen}
+          />
+          {started && <PointerLockControls />}
+        </Canvas>
+      ) : (
+        <div className="lit-canvas-skeleton" aria-hidden />
+      )}
 
       {/* HUD */}
       <header className="lit-hud-top">
@@ -1212,6 +1226,7 @@ export function MuseumApp() {
       {/* Exhibit panel */}
       {active && <ExhibitPanel data={active} onClose={() => setActive(null)} />}
     </div>
+    </MuseumErrorBoundary>
   );
 }
 
