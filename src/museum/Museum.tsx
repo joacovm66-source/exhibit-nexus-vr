@@ -1,9 +1,42 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { PointerLockControls, Html, Text, useTexture } from "@react-three/drei";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Component, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import * as THREE from "three";
 import { ROOMS, type Exhibit, type Room } from "./types";
 import { runMuseumAudit } from "./audit";
+
+// ---------- Error boundary (prevents 3D/WebGL crashes from triggering the SSR 500 page) ----------
+class MuseumErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  componentDidCatch(error: Error, info: unknown) {
+    console.error("[museum] render error", error, info);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="lit-start">
+          <div className="lit-start-card">
+            <div className="lit-start-eyebrow">ERROR DE RENDERIZADO 3D</div>
+            <h1>No pudimos<br />abrir la sala</h1>
+            <p>
+              Tu navegador no pudo inicializar la escena 3D del museo. Suele ocurrir cuando WebGL
+              está deshabilitado o la aceleración por hardware falla. Recarga la página o prueba en
+              otro navegador.
+            </p>
+            <button className="lit-cta" onClick={() => location.reload()}>
+              Reintentar →
+            </button>
+            <div className="lit-start-hint">{String(this.state.error.message || this.state.error)}</div>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // ---------- Layout constants ----------
 const LOBBY_SIZE = 26;
@@ -980,6 +1013,8 @@ function Scene({
 
 // ---------- App + HUD ----------
 export function MuseumApp() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const [started, setStarted] = useState(false);
   const [teleport, setTeleport] = useState<[number, number, number] | null>(null);
   const [near, setNear] = useState<NearTarget | null>(null);
@@ -1059,21 +1094,33 @@ export function MuseumApp() {
   const totalExhibits = ROOMS.reduce((a, r) => a + r.exhibits.length, 0);
 
   return (
+    <MuseumErrorBoundary>
     <div className="lit-root">
-      <Canvas
-        shadows
-        camera={{ position: [0, 1.7, 10], fov: 65 }}
-        gl={{ antialias: true, powerPreference: "high-performance" }}
-      >
-        <Scene
-          teleportTo={teleport}
-          onPlayerMove={() => {}}
-          near={near}
-          onNear={setNear}
-          onOpen={handleOpen}
-        />
-        {started && <PointerLockControls />}
-      </Canvas>
+      {mounted ? (
+        <Canvas
+          shadows
+          camera={{ position: [0, 1.7, 10], fov: 65 }}
+          gl={{ antialias: true, powerPreference: "high-performance", failIfMajorPerformanceCaveat: false }}
+          onCreated={({ gl }) => {
+            const canvas = gl.domElement;
+            canvas.addEventListener("webglcontextlost", (e) => {
+              e.preventDefault();
+              console.warn("[museum] WebGL context lost — esperando restauración");
+            });
+          }}
+        >
+          <Scene
+            teleportTo={teleport}
+            onPlayerMove={() => {}}
+            near={near}
+            onNear={setNear}
+            onOpen={handleOpen}
+          />
+          {started && <PointerLockControls />}
+        </Canvas>
+      ) : (
+        <div className="lit-canvas-skeleton" aria-hidden />
+      )}
 
       {/* HUD */}
       <header className="lit-hud-top">
@@ -1179,6 +1226,7 @@ export function MuseumApp() {
       {/* Exhibit panel */}
       {active && <ExhibitPanel data={active} onClose={() => setActive(null)} />}
     </div>
+    </MuseumErrorBoundary>
   );
 }
 
