@@ -30,6 +30,10 @@ function checkText(value: string | undefined, field: string, ctx: { roomId: stri
 }
 
 export async function runMuseumAudit(): Promise<{ ok: boolean; issues: AuditIssue[] }> {
+  // Solo corre en el navegador: fetch relativo no funciona durante SSR.
+  if (typeof window === "undefined") {
+    return { ok: true, issues: [] };
+  }
   const issues: AuditIssue[] = [];
   const seenIds = new Set<string>();
 
