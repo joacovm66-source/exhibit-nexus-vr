@@ -5,8 +5,24 @@ import * as THREE from "three";
 import { ROOMS, type Exhibit, type Room } from "./types";
 import { runMuseumAudit } from "./audit";
 
+function canUseWebGL() {
+  if (typeof document === "undefined") return false;
+  try {
+    const canvas = document.createElement("canvas");
+    return Boolean(
+      window.WebGLRenderingContext &&
+        (canvas.getContext("webgl") || canvas.getContext("experimental-webgl")),
+    );
+  } catch {
+    return false;
+  }
+}
+
 // ---------- Error boundary (prevents 3D/WebGL crashes from triggering the SSR 500 page) ----------
-class MuseumErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+class MuseumErrorBoundary extends Component<
+  { children: ReactNode; fallback?: (error: Error) => ReactNode },
+  { error: Error | null }
+> {
   state = { error: null as Error | null };
   static getDerivedStateFromError(error: Error) {
     return { error };
@@ -16,6 +32,7 @@ class MuseumErrorBoundary extends Component<{ children: ReactNode }, { error: Er
   }
   render() {
     if (this.state.error) {
+      if (this.props.fallback) return this.props.fallback(this.state.error);
       return (
         <div className="lit-start">
           <div className="lit-start-card">
@@ -36,6 +53,58 @@ class MuseumErrorBoundary extends Component<{ children: ReactNode }, { error: Er
     }
     return this.props.children;
   }
+}
+
+function MuseumCatalogFallback({
+  reason,
+  onRetry,
+}: {
+  reason: string;
+  onRetry: () => void;
+}) {
+  const totalExhibits = ROOMS.reduce((a, r) => a + r.exhibits.length, 0);
+  return (
+    <div className="lit-safe-mode">
+      <header className="lit-safe-hero">
+        <div>
+          <small>MODO SEGURO · MUSEO LITERARIO</small>
+          <h1>Canon Literario Alternativo</h1>
+          <p>
+            La experiencia 3D no pudo mantenerse estable en este navegador. Para evitar una
+            pantalla en blanco, el museo renderiza aquí todas las salas, autores, títulos y
+            portadas disponibles.
+          </p>
+          <span>{reason}</span>
+        </div>
+        <button className="lit-cta" onClick={onRetry}>Reintentar 3D →</button>
+      </header>
+      <div className="lit-safe-summary">
+        <strong>{ROOMS.length}</strong> salas verificadas · <strong>{totalExhibits}</strong> obras renderizadas
+      </div>
+      {ROOMS.map((room) => (
+        <section className="lit-safe-room" key={room.id} style={{ borderTopColor: room.accent }}>
+          <div className="lit-safe-room-head">
+            <small style={{ color: room.accent }}>SALA</small>
+            <h2>{room.name}</h2>
+            <p>{room.curator}</p>
+          </div>
+          <div className="lit-safe-grid">
+            {room.exhibits.map((exhibit) => (
+              <article className="lit-safe-card" key={exhibit.id}>
+                <CoverImg exhibit={exhibit} className="lit-safe-cover" />
+                <div>
+                  <small>{exhibit.nationality ?? "Latinoamérica"}</small>
+                  <h3>{exhibit.author}</h3>
+                  <p><em>{exhibit.work}</em>{exhibit.year ? ` · ${exhibit.year}` : ""}</p>
+                  <p>{exhibit.why}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
 }
 
 // ---------- Layout constants ----------
@@ -1016,6 +1085,7 @@ export function MuseumApp() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const [started, setStarted] = useState(false);
+  const [renderIssue, setRenderIssue] = useState<string | null>(null);
   const [teleport, setTeleport] = useState<[number, number, number] | null>(null);
   const [near, setNear] = useState<NearTarget | null>(null);
   const [active, setActive] = useState<{ exhibit: Exhibit; room: Room } | null>(null);
@@ -1077,6 +1147,23 @@ export function MuseumApp() {
     setVisited((v) => new Set(v).add(exhibit.id));
   }, []);
 
+  const enterMuseum = useCallback(() => {
+    setStarted(true);
+    setRenderIssue(null);
+    if (!canUseWebGL()) {
+      setRenderIssue("WebGL no está disponible o está bloqueado por el navegador.");
+    }
+  }, []);
+
+  const handleCanvasCreated = useCallback(({ gl }: { gl: THREE.WebGLRenderer }) => {
+    const canvas = gl.domElement;
+    canvas.addEventListener("webglcontextlost", (e) => {
+      e.preventDefault();
+      console.warn("[museum] WebGL context lost — activando modo seguro");
+      setRenderIssue("El navegador perdió el contexto WebGL durante la carga del museo.");
+    });
+  }, []);
+
   const goToRoom = (room: Room) => {
     // Position player just inside the room doorway, looking toward the back wall
     const cx = Math.cos(room.angle) * (ROOM_DIST - ROOM_D / 2 + 2);
@@ -1094,20 +1181,24 @@ export function MuseumApp() {
   const totalExhibits = ROOMS.reduce((a, r) => a + r.exhibits.length, 0);
 
   return (
-    <MuseumErrorBoundary>
+    <MuseumErrorBoundary
+      fallback={(error) => (
+        <MuseumCatalogFallback
+          reason={String(error.message || error)}
+          onRetry={() => location.reload()}
+        />
+      )}
+    >
     <div className="lit-root">
-      {mounted ? (
+      {started && renderIssue ? (
+        <MuseumCatalogFallback reason={renderIssue} onRetry={() => location.reload()} />
+      ) : started && mounted ? (
         <Canvas
-          shadows
+          shadows={false}
+          dpr={[1, 1]}
           camera={{ position: [0, 1.7, 10], fov: 65 }}
-          gl={{ antialias: true, powerPreference: "high-performance", failIfMajorPerformanceCaveat: false }}
-          onCreated={({ gl }) => {
-            const canvas = gl.domElement;
-            canvas.addEventListener("webglcontextlost", (e) => {
-              e.preventDefault();
-              console.warn("[museum] WebGL context lost — esperando restauración");
-            });
-          }}
+          gl={{ antialias: false, stencil: false, depth: true, powerPreference: "default", failIfMajorPerformanceCaveat: false }}
+          onCreated={handleCanvasCreated}
         >
           <Scene
             teleportTo={teleport}
@@ -1118,8 +1209,14 @@ export function MuseumApp() {
           />
           {started && <PointerLockControls />}
         </Canvas>
-      ) : (
+      ) : started ? (
         <div className="lit-canvas-skeleton" aria-hidden />
+      ) : null}
+
+      {started && !renderIssue && mounted && (
+        <div className="lit-render-watch" aria-live="polite">
+          Cargando sala 3D… si tu navegador no soporta WebGL, se abrirá el modo seguro.
+        </div>
       )}
 
       {/* HUD */}
@@ -1173,8 +1270,14 @@ export function MuseumApp() {
               excluidas del canon: literatura LGBTQIA+, andina, amazónica, indígena y feminista
               de América Latina.
             </p>
-            <button className="lit-cta" onClick={() => setStarted(true)}>
+            <button className="lit-cta" onClick={enterMuseum}>
               Entrar al museo →
+            </button>
+            <button className="lit-cta lit-cta-secondary" onClick={() => {
+              setStarted(true);
+              setRenderIssue("Modo seguro abierto manualmente.");
+            }}>
+              Catálogo seguro
             </button>
             <div className="lit-start-hint">
               Clic para activar la mirada · <kbd>Esc</kbd> para liberar el cursor
