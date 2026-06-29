@@ -1085,6 +1085,7 @@ export function MuseumApp() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const [started, setStarted] = useState(false);
+  const [canvasReady, setCanvasReady] = useState(false);
   const [renderIssue, setRenderIssue] = useState<string | null>(null);
   const [teleport, setTeleport] = useState<[number, number, number] | null>(null);
   const [near, setNear] = useState<NearTarget | null>(null);
@@ -1149,6 +1150,7 @@ export function MuseumApp() {
 
   const enterMuseum = useCallback(() => {
     setStarted(true);
+    setCanvasReady(false);
     setRenderIssue(null);
     if (!canUseWebGL()) {
       setRenderIssue("WebGL no está disponible o está bloqueado por el navegador.");
@@ -1156,10 +1158,12 @@ export function MuseumApp() {
   }, []);
 
   const handleCanvasCreated = useCallback(({ gl }: { gl: THREE.WebGLRenderer }) => {
+    setCanvasReady(true);
     const canvas = gl.domElement;
     canvas.addEventListener("webglcontextlost", (e) => {
       e.preventDefault();
       console.warn("[museum] WebGL context lost — activando modo seguro");
+      setCanvasReady(false);
       setRenderIssue("El navegador perdió el contexto WebGL durante la carga del museo.");
     });
   }, []);
@@ -1213,7 +1217,7 @@ export function MuseumApp() {
         <div className="lit-canvas-skeleton" aria-hidden />
       ) : null}
 
-      {started && !renderIssue && mounted && (
+      {started && !renderIssue && mounted && !canvasReady && (
         <div className="lit-render-watch" aria-live="polite">
           Cargando sala 3D… si tu navegador no soporta WebGL, se abrirá el modo seguro.
         </div>
@@ -1275,6 +1279,7 @@ export function MuseumApp() {
             </button>
             <button className="lit-cta lit-cta-secondary" onClick={() => {
               setStarted(true);
+              setCanvasReady(false);
               setRenderIssue("Modo seguro abierto manualmente.");
             }}>
               Catálogo seguro
