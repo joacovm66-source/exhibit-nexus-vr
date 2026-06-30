@@ -435,7 +435,12 @@ function HangingLamp({ position, color = "#ffe6b5", intensity = 14 }: {
         <coneGeometry args={[0.32, 0.45, 18, 1, true]} />
         <meshStandardMaterial color="#f7e8c2" emissive={color} emissiveIntensity={0.45} roughness={0.4} side={THREE.DoubleSide} />
       </mesh>
-      <pointLight position={[0, -0.3, 0]} intensity={intensity} distance={9} color={color} decay={1.8} />
+      {/* Light is emissive-only to avoid exceeding the GPU's dynamic-light limit.
+          A few global lights in Lobby/Room provide actual illumination. */}
+      <mesh position={[0, -0.28, 0]}>
+        <sphereGeometry args={[0.14, 12, 10]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={Math.min(1.2, intensity / 10)} toneMapped={false} />
+      </mesh>
     </group>
   );
 }
