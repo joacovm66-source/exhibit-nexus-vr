@@ -621,16 +621,12 @@ function ExhibitNode({
 
   return (
     <group position={worldPosition} rotation={[0, facingY, 0]}>
-      {/* directed spotlight on this exhibit */}
-      <spotLight
-        position={[0, 4.6, 1.2]}
-        angle={0.55}
-        penumbra={0.7}
-        intensity={8}
-        distance={8}
-        color="#ffd9a3"
-        castShadow={false}
-      />
+      {/* No per-exhibit spotlight: too many dynamic lights crash WebGL.
+          A faux highlight disc is painted on the pedestal instead. */}
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0.011, 0]}>
+        <circleGeometry args={[1.4, 24]} />
+        <meshStandardMaterial color="#fff1cf" emissive="#ffd9a3" emissiveIntensity={0.35} transparent opacity={0.55} />
+      </mesh>
       {/* pedestal */}
       <mesh position={[0, 0.55, 0]} castShadow receiveShadow>
         <boxGeometry args={[1.6, 1.1, 1.2]} />
