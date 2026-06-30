@@ -291,13 +291,7 @@ function CeilingPanel({
           roughness={0.5}
         />
       </mesh>
-      <pointLight
-        position={[0, -1.8, 0]}
-        intensity={9}
-        distance={14}
-        color="#ffd9a3"
-        decay={1.8}
-      />
+      {/* No per-panel point light — global ambient/directional lights handle illumination */}
     </group>
   );
 }
@@ -435,7 +429,12 @@ function HangingLamp({ position, color = "#ffe6b5", intensity = 14 }: {
         <coneGeometry args={[0.32, 0.45, 18, 1, true]} />
         <meshStandardMaterial color="#f7e8c2" emissive={color} emissiveIntensity={0.45} roughness={0.4} side={THREE.DoubleSide} />
       </mesh>
-      <pointLight position={[0, -0.3, 0]} intensity={intensity} distance={9} color={color} decay={1.8} />
+      {/* Light is emissive-only to avoid exceeding the GPU's dynamic-light limit.
+          A few global lights in Lobby/Room provide actual illumination. */}
+      <mesh position={[0, -0.28, 0]}>
+        <sphereGeometry args={[0.14, 12, 10]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={Math.min(1.2, intensity / 10)} toneMapped={false} />
+      </mesh>
     </group>
   );
 }
@@ -616,16 +615,12 @@ function ExhibitNode({
 
   return (
     <group position={worldPosition} rotation={[0, facingY, 0]}>
-      {/* directed spotlight on this exhibit */}
-      <spotLight
-        position={[0, 4.6, 1.2]}
-        angle={0.55}
-        penumbra={0.7}
-        intensity={8}
-        distance={8}
-        color="#ffd9a3"
-        castShadow={false}
-      />
+      {/* No per-exhibit spotlight: too many dynamic lights crash WebGL.
+          A faux highlight disc is painted on the pedestal instead. */}
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0.011, 0]}>
+        <circleGeometry args={[1.4, 24]} />
+        <meshStandardMaterial color="#fff1cf" emissive="#ffd9a3" emissiveIntensity={0.35} transparent opacity={0.55} />
+      </mesh>
       {/* pedestal */}
       <mesh position={[0, 0.55, 0]} castShadow receiveShadow>
         <boxGeometry args={[1.6, 1.1, 1.2]} />
@@ -1025,8 +1020,12 @@ function Scene({
       {/* Fully enclosed interior — no sky, dim warm ambient */}
       <color attach="background" args={["#1a140c"]} />
       <fog attach="fog" args={["#2a1f10", 18, 70]} />
-      <ambientLight intensity={0.28} color="#ffe6c0" />
-      <hemisphereLight args={["#ffd9a3", "#3a2a18", 0.35]} />
+      {/* Global illumination only — keep total dynamic lights low (<8) to
+          prevent WebGL context loss on integrated GPUs. */}
+      <ambientLight intensity={0.85} color="#ffe6c0" />
+      <hemisphereLight args={["#ffd9a3", "#3a2a18", 0.9]} />
+      <directionalLight position={[6, 14, 6]} intensity={0.6} color="#ffe1b3" castShadow={false} />
+      <directionalLight position={[-6, 12, -4]} intensity={0.35} color="#ffd9a3" castShadow={false} />
       <Suspense fallback={null}>{null}</Suspense>
 
       <Lobby />
