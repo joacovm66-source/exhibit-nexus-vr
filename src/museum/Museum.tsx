@@ -291,13 +291,7 @@ function CeilingPanel({
           roughness={0.5}
         />
       </mesh>
-      <pointLight
-        position={[0, -1.8, 0]}
-        intensity={9}
-        distance={14}
-        color="#ffd9a3"
-        decay={1.8}
-      />
+      {/* No per-panel point light — global ambient/directional lights handle illumination */}
     </group>
   );
 }
