@@ -1026,8 +1026,12 @@ function Scene({
       {/* Fully enclosed interior — no sky, dim warm ambient */}
       <color attach="background" args={["#1a140c"]} />
       <fog attach="fog" args={["#2a1f10", 18, 70]} />
-      <ambientLight intensity={0.28} color="#ffe6c0" />
-      <hemisphereLight args={["#ffd9a3", "#3a2a18", 0.35]} />
+      {/* Global illumination only — keep total dynamic lights low (<8) to
+          prevent WebGL context loss on integrated GPUs. */}
+      <ambientLight intensity={0.85} color="#ffe6c0" />
+      <hemisphereLight args={["#ffd9a3", "#3a2a18", 0.9]} />
+      <directionalLight position={[6, 14, 6]} intensity={0.6} color="#ffe1b3" castShadow={false} />
+      <directionalLight position={[-6, 12, -4]} intensity={0.35} color="#ffd9a3" castShadow={false} />
       <Suspense fallback={null}>{null}</Suspense>
 
       <Lobby />
